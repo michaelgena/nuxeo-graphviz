@@ -1,0 +1,54 @@
+<dom-module id="nuxeo-graphviz" assetpath="nuxeo-graphviz/">
+  <template>
+  <style>
+    paper-button {
+      background: #FFFFFF;
+      color: black;
+    }
+
+  </style>
+  <nx-connection id="nx"></nx-connection>
+  <nuxeo-operation id="GenerateGraph" op="GenerateGraph" params="" response="{{response}}"></nuxeo-operation>
+
+  <div class="bubbleBox">
+      <div class="bubbleHeader">
+        {{response}}
+        <table width="100%">
+        <tr>
+          <td>
+              <img src="http://localhost:8080/nuxeo/graphviz/img.png"/>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <paper-button raised on-tap="_refresh">Refresh</paper-button>
+          </td>
+        </tr>
+        </tbody>
+        </table>
+      </div>
+  </div>
+</template>
+<script>
+    Polymer({
+      is: 'nuxeo-graphviz',
+      created: function() {
+
+      },
+      properties: {
+        params: {
+          type:Object,
+          value: {}
+        }
+      },
+
+      ready: function () {
+        this.$.GenerateGraph.execute();
+      },
+
+      _refresh: function(){
+        this.$.GenerateGraph.execute();
+      }
+    });
+</script>
+</dom-module>

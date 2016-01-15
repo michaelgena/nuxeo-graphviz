@@ -1,0 +1,80 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.nuxeo</groupId>
+    <artifactId>nuxeo-ecm</artifactId>
+    <version>7.10</version>
+  </parent>
+  <groupId>org.nuxeo.graphviz</groupId>
+  <artifactId>nuxeo-graphviz-parent</artifactId>
+  <version>7.10</version>
+  <name>Nuxeo Graphviz Parent</name>
+  <description>Nuxeo Graphviz POM</description>
+  <packaging>pom</packaging>
+
+  <properties>
+      <nuxeo.project.version>${project.version}</nuxeo.project.version>
+      <nuxeo.version>7.10</nuxeo.version>
+      <nuxeo.distribution.version>7.10</nuxeo.distribution.version>
+      <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+      <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+  </properties>
+
+  <modules>
+    <module>nuxeo-graphviz-operations</module>
+    <module>nuxeo-graphviz-ui</module>
+    <module>nuxeo-graphviz-mp</module>
+  </modules>
+
+  <dependencyManagement>
+      <dependencies>
+          <dependency>
+              <groupId>org.nuxeo.ecm.distribution</groupId>
+              <artifactId>nuxeo-distribution</artifactId>
+              <scope>import</scope>
+              <type>pom</type>
+              <version>${nuxeo.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>org.nuxeo.graphviz</groupId>
+              <artifactId>nuxeo-grapviz-operations</artifactId>
+              <version>${nuxeo.project.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>org.nuxeo.graphviz</groupId>
+              <artifactId>nuxeo-graphviz-ui</artifactId>
+              <version>${nuxeo.project.version}</version>
+          </dependency>
+          <dependency>
+              <groupId>org.nuxeo.graphviz</groupId>
+              <artifactId>nuxeo-graphviz-mp</artifactId>
+              <version>${nuxeo.project.version}</version>
+          </dependency>
+      </dependencies>
+  </dependencyManagement>
+
+  <repositories>
+    <repository>
+      <id>public</id>
+      <url>http://maven.nuxeo.org/nexus/content/groups/public</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>public-snapshot</id>
+      <url>http://maven.nuxeo.org/nexus/content/groups/public-snapshot</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <updatePolicy>always</updatePolicy>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
+
+</project>

@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Bundle-SymbolicName: nuxeo-graphviz
+Bundle-Name: nuxeo-graphviz-operations
+Bundle-Version: 1.0.qualifier
+Bundle-ClassPath: .
+Bundle-ActivationPolicy: lazy
+Bundle-RequiredExecutionEnvironment: JavaSE-1.7
+Bundle-ManifestVersion: 2
+Bundle-Vendor: Nuxeo
+Nuxeo-Component: OSGI-INF/extensions/org.nuxeo.graphviz.GenerateGraph.
+ xml,OSGI-INF/extensions/graphvizcmd.xml
+
