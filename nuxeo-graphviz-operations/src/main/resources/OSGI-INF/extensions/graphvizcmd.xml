@@ -17,20 +17,30 @@
 	    point="command">
 			<command enabled="true" name="copy-studio-jar">
 	          	<commandLine>cp</commandLine>
-	          	<winCommand>copy</winCommand>
+	          	<!--winCommand>copy</winCommand-->
 		        <parameterString> #{studioJar} #{dest}</parameterString>
 		        <winParameterString> #{studioJar} #{dest}</winParameterString>
 		        <installationDirective>Command cp not found</installationDirective>
 		    </command>
 	</extension>
 
-	<extension
+	<!--extension
 	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
 	    point="command">
 			<command enabled="true" name="extract-studio-xml">
 	          	<commandLine>jar</commandLine>
 		        <parameterString> -C #{dir} xf #{studioJar}</parameterString>
 		        <installationDirective>Command jar not found</installationDirective>
+		    </command>
+	</extension-->
+	
+	<extension
+	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
+	    point="command">
+			<command enabled="true" name="extract-studio-xml">
+	          	<commandLine>unzip</commandLine>
+		        <parameterString> -d #{dir} #{studioJar}</parameterString>
+		        <installationDirective>Command unzip not found</installationDirective>
 		    </command>
 	</extension>
 </component>

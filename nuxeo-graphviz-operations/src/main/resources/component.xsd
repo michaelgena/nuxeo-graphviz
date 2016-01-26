@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+          <!-- XML Schema Generated from XML Document on Tue Jan 19 2016 16:42:25 GMT+0100 (CET) -->
+          <!-- with XmlGrid.net Free Online Service http://xmlgrid.net -->
+       <xs:element name="component">
+              <xs:complexType>
+                     <xs:sequence>
+                            <xs:element name="extension" maxOccurs="unbounded">
+                                   <xs:complexType>
+                                          <xs:sequence>
+                                                 <xs:element name="action" maxOccurs="unbounded">
+                                                        <xs:complexType>
+                                                               <xs:sequence>
+                                                                      <xs:element name="category" type="xs:string"></xs:element>
+                                                                      <xs:element name="filter">
+                                                                             <xs:complexType>
+                                                                                    <xs:sequence>
+                                                                                           <xs:element name="rule" maxOccurs="unbounded">
+                                                                                                  <xs:complexType>
+                                                                                                         <xs:sequence>
+                                                                                                                <xs:element name="facet" type="xs:string"></xs:element>
+                                                                                                            </xs:sequence>
+                                                                                                         <xs:attribute name="grant" type="xs:string"></xs:attribute>
+                                                                                                     </xs:complexType>
+                                                                                              </xs:element>
+                                                                                       </xs:sequence>
+                                                                                    <xs:attribute name="id" type="xs:string"></xs:attribute>
+                                                                                </xs:complexType>
+                                                                         </xs:element>
+                                                                  </xs:sequence>
+                                                               <xs:attribute name="id" type="xs:string"></xs:attribute>
+                                                               <xs:attribute name="label" type="xs:string"></xs:attribute>
+                                                               <xs:attribute name="enabled" type="xs:string"></xs:attribute>
+                                                               <xs:attribute name="order" type="xs:int"></xs:attribute>
+                                                               <xs:attribute name="type" type="xs:string"></xs:attribute>
+                                                               <xs:attribute name="immediate" type="xs:string"></xs:attribute>
+                                                               <xs:attribute name="link" type="xs:string"></xs:attribute>
+                                                           </xs:complexType>
+                                                    </xs:element>
+                                                 <xs:element name="chain" maxOccurs="unbounded">
+                                                        <xs:complexType>
+                                                               <xs:sequence>
+                                                               		  <xs:element name="description" type="xs:string"></xs:element>
+                                                                      <xs:element name="operation" maxOccurs="unbounded">
+                                                                             <xs:complexType>
+                                                                                    <xs:attribute name="id" type="xs:string"></xs:attribute>
+                                                                                </xs:complexType>
+                                                                         </xs:element>
+                                                                  </xs:sequence>
+                                                               <xs:attribute name="id" type="xs:string"></xs:attribute>
+                                                           </xs:complexType>
+                                                    </xs:element>
+                                                 <xs:element name="handler" maxOccurs="unbounded">
+                                                        <xs:complexType>
+                                                               <xs:sequence>
+                                                                      <xs:element name="event" maxOccurs="unbounded" type="xs:string"></xs:element>
+                                                                      <xs:element name="filters">
+                                                                             <xs:complexType>
+                                                                                    <xs:sequence>
+                                                                                           <xs:element name="facet" type="xs:string"></xs:element>
+                                                                                           <xs:element name="attribute" type="xs:string"></xs:element>
+                                                                                       </xs:sequence>
+                                                                                </xs:complexType>
+                                                                         </xs:element>
+                                                                  </xs:sequence>
+                                                               <xs:attribute name="chainId" type="xs:string"></xs:attribute>
+                                                           </xs:complexType>
+                                                    </xs:element>
+                                             </xs:sequence>
+                                          <xs:attribute name="target" type="xs:string"></xs:attribute>
+                                          <xs:attribute name="point" type="xs:string"></xs:attribute>
+                                      </xs:complexType>
+                               </xs:element>
+                        </xs:sequence>
+                     <xs:attribute name="name" type="xs:string"></xs:attribute>
+                     <xs:attribute name="version" type="xs:string"></xs:attribute>
+                 </xs:complexType>
+          </xs:element>
+   </xs:schema>
