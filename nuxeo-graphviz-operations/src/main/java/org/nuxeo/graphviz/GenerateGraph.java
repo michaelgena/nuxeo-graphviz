@@ -96,7 +96,13 @@ public class GenerateGraph {
 	      	  
 	    Component component = (Component) unmarshaller.unmarshal(new File(nuxeoHomePath+File.separator+"GraphViz"+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
 	    
-	    result = "digraph G {\n";
+	    String rank = "subgraph entryPoint {\n"+
+	    			  "		rank=\"same\";\n";
+	    
+	    result = "digraph G {\nrankdir=\"LR\";\n"+
+	    "graph [fontname = \"helvetica\"];\n"+
+	    "node [fontname = \"helvetica\"];\n"+
+	    "edge [fontname = \"helvetica\"];\n";
 	    List<Extension> extensions = component.getExtension();
 	    String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
 	    // Create a Pattern object
@@ -124,11 +130,12 @@ public class GenerateGraph {
     						
 	    					if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
 	    						String cleanedChainId = cleanUpForDot(chainId);
-	    						result += cleanedChainId + " [label=\""+action.getId()+"\",shape=box,fillcolor=\"#28A3C7\",style=\"filled\"];\n";
-	    						result += cleanedActionId+" -> "+cleanedChainId;
+	    						String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+	    						result += cleanedChainId + " [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+	    						result += cleanedActionId+" -> "+cleanedChainId+";\n";
 	    					}
-	    					result += cleanedActionId+" [label=\""+action.getId()+"\",shape=box,fillcolor=\"#00ADFF\",style=\"filled\"];\n";
-	    						    						    					
+	    					result += cleanedActionId+" [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+	    					rank += cleanedActionId+";";	    						    					
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting Actions", e);
@@ -139,7 +146,7 @@ public class GenerateGraph {
 	    				List<Chain> chains = extension.getChain();
 	    				for(Chain chain:chains){
 	    					chain.getId();
-	    					result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
+	    					result += cleanUpForDot(chain.getId())+ " [fontsize =14, label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting Chains", e);
@@ -150,8 +157,11 @@ public class GenerateGraph {
 	    				List<Handler> handlers = extension.getHandler();
 	    				for(Handler handler:handlers){
 	    					handler.getChainId();
+	    					
+	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [fontsize =14, label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
+	    					result += cleanUpForDot(handler.getChainId())+ " [fontsize =14, label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
 	    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fillcolor=\"#FF462A\",style=\"filled\"];\n";	    											    					
+	    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting Chains", e);
@@ -159,6 +169,7 @@ public class GenerateGraph {
 	    			break;
 	    	}
 	    }
+	    result += rank+"\n}\n";
     	result += "}";
     	//hack to remove unwanted characters
     	
@@ -169,7 +180,7 @@ public class GenerateGraph {
 	    CmdParameters parameters = new CmdParameters();
 	    		    
 	    parameters.addNamedParameter("inputFile", nuxeoHomePath+File.separator+"GraphViz"+File.separator+"input.dot");
-	    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.png");
+	    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.ps");
 
 	    logger.error("Before running command line");
 	    

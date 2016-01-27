@@ -4,10 +4,10 @@
 	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
 	    point="command">
 			<command enabled="true" name="dot">
-	          	<!--commandLine>dot</commandLine-->
-	          	<commandLine>/usr/local/bin/dot</commandLine>
-		        <parameterString> -Tpng #{inputFile} -o #{outputFile}</parameterString>
-		        <winParameterString> -Tpng #{inputFile} -o #{outputFile}</winParameterString>
+	          	<commandLine>dot</commandLine>
+	          	<!--commandLine>/usr/local/bin/dot</commandLine-->
+		        <parameterString> -Tps2 #{inputFile} -o #{outputFile}</parameterString>
+		        <winParameterString> -Tps2 #{inputFile} -o #{outputFile}</winParameterString>
 		        <installationDirective>You need to install GraphViz from http://www.graphviz.org</installationDirective>
 		    </command>
 	</extension>
