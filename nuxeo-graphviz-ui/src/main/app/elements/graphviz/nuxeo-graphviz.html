@@ -5,7 +5,9 @@
       background: #FFFFFF;
       color: black;
     }
-
+    .center {
+        text-align: center;
+    }
   </style>
   <nx-connection id="nx"></nx-connection>
   <nuxeo-operation id="GenerateGraph" op="GenerateGraph" params="" response="{{response}}"></nuxeo-operation>
@@ -14,8 +16,14 @@
       <div class="bubbleHeader">
         <table width="100%">
         <tr>
-          <td>
-              <img src="/nuxeo/graphviz/img.ps"/>
+          <td class="center"/>
+              <template is="dom-if" if="{{_isDefined(response)}}">
+                <img id="graph" src="" usemap="#G" />
+                <div inner-h-t-m-l="{{response}}"></div>
+              </template>
+              <template is="dom-if" if="{{!_isDefined(response)}}">
+                <img src="/nuxeo/img/big_loading.gif" >
+              </template>
           </td>
         </tr>
         <tr>
@@ -47,6 +55,14 @@
 
       _refresh: function(){
         this.$.GenerateGraph.execute();
+      },
+      _isDefined: function(response) {
+        if ((typeof response !== 'undefined') && (response !== '') && (response !== null)) {
+          this.$("#graph").attr("src", "/nuxeo/graphviz/img.png?random="+Math.random());
+          return true;
+        } else {
+          return false;
+        }
       }
     });
 </script>

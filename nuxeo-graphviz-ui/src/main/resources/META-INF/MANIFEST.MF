@@ -2,7 +2,7 @@ nifest-Version: 1.0
 Bundle-Vendor: Nuxeo
 Nuxeo-RequiredBy: org.nuxeo.ecm.war
 Bundle-Version: 0.0.1
-Bundle-Name: Nuxeo ES Synonyms
+Bundle-Name: Nuxeo Graphviz
 Bundle-ManifestVersion: 1
-Bundle-SymbolicName: org.nuxeo.es.synonyms;singleton:=true
-Nuxeo-Component: OSGI-INF/auth-config.xml,OSGI-INF/synonyms.xml
+Bundle-SymbolicName: org.nuxeo.graphviz;singleton:=true
+Nuxeo-Component: OSGI-INF/auth-config.xml,OSGI-INF/graphviz.xml

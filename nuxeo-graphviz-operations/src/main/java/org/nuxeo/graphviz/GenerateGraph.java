@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.Unmarshaller;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.common.Environment;
@@ -53,146 +54,143 @@ public class GenerateGraph {
            	
     	String studioJar = "";
     	String result = "";
+    	String map = "";
     	String url = "";
     	CommandLineExecutorComponent commandLineExecutorComponent = new CommandLineExecutorComponent();
     	String nuxeoHomePath = Environment.getDefault().getServerHome().getAbsolutePath();
     	    	
     	try {
-	      JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
-	      Unmarshaller unmarshaller = jc.createUnmarshaller();
-	      //unmarshaller.setValidating(true);
-	      
-	      PackageManager pm = Framework.getLocalService(PackageManager.class);
-	      List<DownloadablePackage> pkgs = pm.listRemoteAssociatedStudioPackages();
-	      DownloadablePackage snapshotPkg = getSnapshot(pkgs);
-	      String studioPackage = "";
-	      if (snapshotPkg != null) {
-	    	  studioPackage = snapshotPkg.getId();
-	    	  studioJar = studioPackage.replace("-0.0.0-SNAPSHOT", "")+".jar";
-	      } else {
-	    	  logger.info("No Studio Package found.");
-	      }
-	      	      
-	      CodeSource src = Framework.class.getProtectionDomain().getCodeSource();
-	      if (src != null) {
-	    	url = src.getLocation().toString();
-	    	String path[] = url.split("/");
-	    	url = url.replace(path[path.length-1], studioJar);	
-	    	url = url.replace("file:","");
-	        logger.error("Studio jar path ["+url+"]");
-	        CmdParameters params2 = new CmdParameters();
-	        params2.addNamedParameter("studioJar", url);
-	        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
-	        commandLineExecutorComponent.execCommand("copy-studio-jar", params2);
-	        
-	        
-	        CmdParameters params = new CmdParameters();
-	        params.addNamedParameter("dir", nuxeoHomePath+File.separator+"GraphViz");
-	        params.addNamedParameter("studioJar", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
-	        commandLineExecutorComponent.execCommand("extract-studio-xml", params);
-	      	
-	        //TODO Extract the OSGI-INF/extensions.xml
-	     } 
-	      	  
-	    Component component = (Component) unmarshaller.unmarshal(new File(nuxeoHomePath+File.separator+"GraphViz"+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
-	    
-	    String rank = "subgraph entryPoint {\n"+
-	    			  "		rank=\"same\";\n";
-	    
-	    result = "digraph G {\nrankdir=\"LR\";\n"+
-	    "graph [fontname = \"helvetica\"];\n"+
-	    "node [fontname = \"helvetica\"];\n"+
-	    "edge [fontname = \"helvetica\"];\n";
-	    List<Extension> extensions = component.getExtension();
-	    String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
-	    // Create a Pattern object
-	    Pattern r = Pattern.compile(pattern);
-	    
-	    for(Extension extension:extensions){
-	    	String point = extension.getPoint();
-	    	switch (point){
-	    		case EXTENSIONPOINT_ACTIONS : 
-	    			try{
-	    				List<Action> actions = extension.getAction();
-	    				for(Action action:actions){
-	    					String chainId = "";
-	    					try{
-	    						chainId = action.getLink();
-	    						// Now create matcher object.
-	    					    Matcher m = r.matcher(chainId);
-	    					    if (m.find( )) {
-	    					    	chainId = m.group(1);
-	    					    }
-	    					}catch(Exception e){
-	    						logger.error("Error when getting chainId", e);
-	    					}
-	    					String cleanedActionId = cleanUpForDot(action.getId());
-    						
-	    					if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
-	    						String cleanedChainId = cleanUpForDot(chainId);
-	    						String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-	    						result += cleanedChainId + " [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
-	    						result += cleanedActionId+" -> "+cleanedChainId+";\n";
-	    					}
-	    					result += cleanedActionId+" [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
-	    					rank += cleanedActionId+";";	    						    					
-	    				}
-	    			}catch(Exception e){
-	    				logger.error("Error when getting Actions", e);
-	    			}
-	    			break;
-	    		case EXTENSIONPOINT_CHAIN :
-	    			try{
-	    				List<Chain> chains = extension.getChain();
-	    				for(Chain chain:chains){
-	    					chain.getId();
-	    					result += cleanUpForDot(chain.getId())+ " [fontsize =14, label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
-	    				}
-	    			}catch(Exception e){
-	    				logger.error("Error when getting Chains", e);
-	    			}
-	    			break;	    		
-	    		case EXTENSIONPOINT_EVENT_HANDLERS : 
-	    			try{
-	    				List<Handler> handlers = extension.getHandler();
-	    				for(Handler handler:handlers){
-	    					handler.getChainId();
-	    					
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [fontsize =14, label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
-	    					result += cleanUpForDot(handler.getChainId())+ " [fontsize =14, label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
-	    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
-	    				}
-	    			}catch(Exception e){
-	    				logger.error("Error when getting Chains", e);
-	    			}
-	    			break;
-	    	}
-	    }
-	    result += rank+"\n}\n";
-    	result += "}";
-    	//hack to remove unwanted characters
-    	
-    	
-    	logger.error("result ["+result+"]");
-	    writeToFile(nuxeoHomePath+File.separator+"GraphViz"+File.separator+File.separator+"input.dot", result);
-	        
-	    CmdParameters parameters = new CmdParameters();
-	    		    
-	    parameters.addNamedParameter("inputFile", nuxeoHomePath+File.separator+"GraphViz"+File.separator+"input.dot");
-	    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.ps");
-
-	    logger.error("Before running command line");
-	    
-	    commandLineExecutorComponent.execCommand("dot", parameters);
-	    logger.error("After running command line");
-	        	        
-	  
+		      JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
+		      Unmarshaller unmarshaller = jc.createUnmarshaller();
+		      //unmarshaller.setValidating(true);
+		      
+		      PackageManager pm = Framework.getLocalService(PackageManager.class);
+		      List<DownloadablePackage> pkgs = pm.listRemoteAssociatedStudioPackages();
+		      DownloadablePackage snapshotPkg = getSnapshot(pkgs);
+		      String studioPackage = "";
+		      if (snapshotPkg != null) {
+		    	  studioPackage = snapshotPkg.getId();
+		    	  studioJar = studioPackage.replace("-0.0.0-SNAPSHOT", "")+".jar";
+		      } else {
+		    	  logger.info("No Studio Package found.");
+		      }
+		      	      
+		      CodeSource src = Framework.class.getProtectionDomain().getCodeSource();
+		      if (src != null) {
+		    	url = src.getLocation().toString();
+		    	String path[] = url.split("/");
+		    	url = url.replace(path[path.length-1], studioJar);	
+		    	url = url.replace("file:","");
+		       
+		        CmdParameters params2 = new CmdParameters();
+		        params2.addNamedParameter("studioJar", url);
+		        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
+		        commandLineExecutorComponent.execCommand("copy-studio-jar", params2);
+		        		        
+		        CmdParameters params = new CmdParameters();
+		        params.addNamedParameter("dir", nuxeoHomePath+File.separator+"GraphViz");
+		        params.addNamedParameter("studioJar", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
+		        commandLineExecutorComponent.execCommand("extract-studio-xml", params);
+		      	
+		     } 
+		      	  
+		    Component component = (Component) unmarshaller.unmarshal(new File(nuxeoHomePath+File.separator+"GraphViz"+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
+		    
+		    String rank = "subgraph entryPoint {\n"+
+		    			  "		rank=\"same\";\n";
+		    
+		    result = "digraph G {\nrankdir=\"LR\";\n"+
+		    "graph [fontname = \"helvetica\"];\n"+
+		    "node [fontname = \"helvetica\"];\n"+
+		    "edge [fontname = \"helvetica\"];\n";
+		    List<Extension> extensions = component.getExtension();
+		    String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
+		    // Create a Pattern object
+		    Pattern r = Pattern.compile(pattern);
+		    
+		    for(Extension extension:extensions){
+		    	String point = extension.getPoint();
+		    	switch (point){
+		    		case EXTENSIONPOINT_ACTIONS : 
+		    			try{
+		    				List<Action> actions = extension.getAction();
+		    				for(Action action:actions){
+		    					String chainId = "";
+		    					try{
+		    						chainId = action.getLink();
+		    						// Now create matcher object.
+		    					    Matcher m = r.matcher(chainId);
+		    					    if (m.find( )) {
+		    					    	chainId = m.group(1);
+		    					    }
+		    					}catch(Exception e){
+		    						logger.error("Error when getting chainId", e);
+		    					}
+		    					String cleanedActionId = cleanUpForDot(action.getId());
+	    						
+		    					if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
+		    						String cleanedChainId = cleanUpForDot(chainId);
+		    						String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+		    						result += cleanedChainId + " [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+		    						result += cleanedActionId+" -> "+cleanedChainId+";\n";
+		    					}
+		    					result += cleanedActionId+" [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+		    					rank += cleanedActionId+";";	    						    					
+		    				}
+		    			}catch(Exception e){
+		    				logger.error("Error when getting Actions", e);
+		    			}
+		    			break;
+		    		case EXTENSIONPOINT_CHAIN :
+		    			try{
+		    				List<Chain> chains = extension.getChain();
+		    				for(Chain chain:chains){
+		    					chain.getId();
+		    					result += cleanUpForDot(chain.getId())+ " [fontsize =14, label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
+		    				}
+		    			}catch(Exception e){
+		    				logger.error("Error when getting Chains", e);
+		    			}
+		    			break;	    		
+		    		case EXTENSIONPOINT_EVENT_HANDLERS : 
+		    			try{
+		    				List<Handler> handlers = extension.getHandler();
+		    				for(Handler handler:handlers){
+		    					handler.getChainId();
+		    					
+		    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [fontsize =14, label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
+		    					result += cleanUpForDot(handler.getChainId())+ " [fontsize =14, label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
+		    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
+		    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
+		    				}
+		    			}catch(Exception e){
+		    				logger.error("Error when getting Chains", e);
+		    			}
+		    			break;
+		    	}
+		    }
+		    result += rank+"\n}\n";
+	    	result += "}";
+	
+		    writeToFile(nuxeoHomePath+File.separator+"GraphViz"+File.separator+File.separator+"input.dot", result);
+		        
+		    CmdParameters parameters = new CmdParameters();
+		    		    
+		    parameters.addNamedParameter("inputFile", nuxeoHomePath+File.separator+"GraphViz"+File.separator+"input.dot");
+		    parameters.addNamedParameter("format", "png");
+		    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.png");
+		    commandLineExecutorComponent.execCommand("dot", parameters);
+		    
+		    parameters.addNamedParameter("format", "cmapx");
+		    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.cmapx");
+		    commandLineExecutorComponent.execCommand("dot", parameters);
+		    map = FileUtils.readFileToString(new File(nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.cmapx"));
+		   
 	    } catch (Exception e) {
 	      logger.error(e);
 	    }
 
-    	return new StringBlob(result); 
+    	return new StringBlob(map); 
     	
     }   
     public static boolean isSnapshot(DownloadablePackage pkg) {
@@ -207,7 +205,7 @@ public class GenerateGraph {
 		}
 		return null;
 	}
-	
+
 	 public void writeToFile(String path, String content) {
 			FileOutputStream fop = null;
 			File file;

@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component name="nuxeo-studio-graphviz-command-contrib" version="1.0.0">
+	<require>org.nuxeo.runtime.started</require>
 	<extension
 	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
 	    point="command">
 			<command enabled="true" name="dot">
 	          	<commandLine>dot</commandLine>
 	          	<!--commandLine>/usr/local/bin/dot</commandLine-->
-		        <parameterString> -Tps2 #{inputFile} -o #{outputFile}</parameterString>
-		        <winParameterString> -Tps2 #{inputFile} -o #{outputFile}</winParameterString>
+		        <parameterString> -T#{format} #{inputFile} -o #{outputFile}</parameterString>
+		        <winParameterString> -T#{format} #{inputFile} -o #{outputFile}</winParameterString>
 		        <installationDirective>You need to install GraphViz from http://www.graphviz.org</installationDirective>
 		    </command>
 	</extension>
@@ -23,24 +24,15 @@
 		        <installationDirective>Command cp not found</installationDirective>
 		    </command>
 	</extension>
-
-	<!--extension
-	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
-	    point="command">
-			<command enabled="true" name="extract-studio-xml">
-	          	<commandLine>jar</commandLine>
-		        <parameterString> -C #{dir} xf #{studioJar}</parameterString>
-		        <installationDirective>Command jar not found</installationDirective>
-		    </command>
-	</extension-->
 	
 	<extension
 	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
 	    point="command">
 			<command enabled="true" name="extract-studio-xml">
-	          	<commandLine>unzip</commandLine>
-		        <parameterString> -d #{dir} #{studioJar}</parameterString>
-		        <installationDirective>Command unzip not found</installationDirective>
+              <commandLine>/Users/mgena/Documents/GraphViz/nuxeo-cap-7.10-tomcat/GraphViz/graphviz.sh</commandLine>
+		        <parameterString> #{dir} #{studioJar}</parameterString>
+		        <installationDirective>Command graphviz.sh not found</installationDirective>
 		    </command>
 	</extension>
+
 </component>
