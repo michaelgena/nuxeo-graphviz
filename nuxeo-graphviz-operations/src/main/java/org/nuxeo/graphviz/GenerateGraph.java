@@ -82,6 +82,9 @@ public class GenerateGraph {
 		    	url = url.replace(path[path.length-1], studioJar);	
 		    	url = url.replace("file:","");
 		       
+		    	//TODO 
+		    	//Create the GraphViz folder if it doesn't exist
+		    	
 		        CmdParameters params2 = new CmdParameters();
 		        params2.addNamedParameter("studioJar", url);
 		        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
@@ -100,9 +103,9 @@ public class GenerateGraph {
 		    			  "		rank=\"same\";\n";
 		    
 		    result = "digraph G {\nrankdir=\"LR\";\n"+
-		    "graph [fontname = \"helvetica\"];\n"+
-		    "node [fontname = \"helvetica\"];\n"+
-		    "edge [fontname = \"helvetica\"];\n";
+		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
+		    "node [fontname = \"helvetica\", fontsize=11];\n"+
+		    "edge [fontname = \"helvetica\", fontsize=11];\n";
 		    List<Extension> extensions = component.getExtension();
 		    String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
 		    // Create a Pattern object
@@ -131,10 +134,10 @@ public class GenerateGraph {
 		    					if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
 		    						String cleanedChainId = cleanUpForDot(chainId);
 		    						String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    						result += cleanedChainId + " [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+		    						result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
 		    						result += cleanedActionId+" -> "+cleanedChainId+";\n";
 		    					}
-		    					result += cleanedActionId+" [fontsize =14, URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+		    					result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
 		    					rank += cleanedActionId+";";	    						    					
 		    				}
 		    			}catch(Exception e){
@@ -145,8 +148,12 @@ public class GenerateGraph {
 		    			try{
 		    				List<Chain> chains = extension.getChain();
 		    				for(Chain chain:chains){
-		    					chain.getId();
-		    					result += cleanUpForDot(chain.getId())+ " [fontsize =14, label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
+		    					String chainId = chain.getId();
+		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+		    					logger.error("chain description "+chain.getDescription());
+	    						result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+
+		    					//result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
 		    				}
 		    			}catch(Exception e){
 		    				logger.error("Error when getting Chains", e);
@@ -158,8 +165,8 @@ public class GenerateGraph {
 		    				for(Handler handler:handlers){
 		    					handler.getChainId();
 		    					
-		    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [fontsize =14, label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
-		    					result += cleanUpForDot(handler.getChainId())+ " [fontsize =14, label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
+		    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
+		    					result += cleanUpForDot(handler.getChainId())+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
 		    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
 		    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
 		    				}

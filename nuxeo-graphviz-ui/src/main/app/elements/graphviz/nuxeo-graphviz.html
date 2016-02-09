@@ -18,7 +18,7 @@
         <tr>
           <td class="center"/>
               <template is="dom-if" if="{{_isDefined(response)}}">
-                <img id="graph" src="" usemap="#G" />
+                <img src="{{imgUrl}}" usemap="#G" />
                 <div inner-h-t-m-l="{{response}}"></div>
               </template>
               <template is="dom-if" if="{{!_isDefined(response)}}">
@@ -46,6 +46,10 @@
         params: {
           type:Object,
           value: {}
+        },
+        imgUrl: {
+          type:String,
+          value: ''
         }
       },
 
@@ -58,7 +62,7 @@
       },
       _isDefined: function(response) {
         if ((typeof response !== 'undefined') && (response !== '') && (response !== null)) {
-          this.$("#graph").attr("src", "/nuxeo/graphviz/img.png?random="+Math.random());
+          this.imgUrl = "/nuxeo/graphviz/img.png?random="+Math.random();
           return true;
         } else {
           return false;
