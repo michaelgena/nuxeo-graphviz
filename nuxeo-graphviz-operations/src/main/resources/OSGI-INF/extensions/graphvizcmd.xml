@@ -25,14 +25,4 @@
 		    </command>
 	</extension>
 	
-	<extension
-	    target="org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent"
-	    point="command">
-			<command enabled="true" name="extract-studio-xml">
-              <commandLine>/Users/mgena/Documents/GraphViz/nuxeo-cap-7.10-tomcat/GraphViz/graphviz.sh</commandLine>
-		        <parameterString> #{dir} #{studioJar}</parameterString>
-		        <installationDirective>Command graphviz.sh not found</installationDirective>
-		    </command>
-	</extension>
-
 </component>

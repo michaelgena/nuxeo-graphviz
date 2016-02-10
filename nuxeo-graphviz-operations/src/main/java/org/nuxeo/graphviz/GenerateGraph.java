@@ -13,6 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 
 import org.apache.commons.io.FileUtils;
@@ -27,6 +28,7 @@ import org.nuxeo.ecm.automation.core.annotations.OperationMethod;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.platform.commandline.executor.api.CmdParameters;
+import org.nuxeo.ecm.platform.commandline.executor.api.CommandNotAvailable;
 import org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorComponent;
 import org.nuxeo.jaxb.Component;
 import org.nuxeo.jaxb.Component.Extension;
@@ -48,56 +50,130 @@ public class GenerateGraph {
     public static final String EXTENSIONPOINT_EVENT_HANDLERS = "event-handlers";
     public static final String EXTENSIONPOINT_ACTIONS = "actions";
 
-    
     @OperationMethod
-    public Blob run() {
-           	
+    public Blob run() {           	
     	String studioJar = "";
-    	String result = "";
     	String map = "";
     	String url = "";
     	CommandLineExecutorComponent commandLineExecutorComponent = new CommandLineExecutorComponent();
-    	String nuxeoHomePath = Environment.getDefault().getServerHome().getAbsolutePath();
-    	    	
-    	try {
-		      JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
-		      Unmarshaller unmarshaller = jc.createUnmarshaller();
-		      //unmarshaller.setValidating(true);
-		      
-		      PackageManager pm = Framework.getLocalService(PackageManager.class);
-		      List<DownloadablePackage> pkgs = pm.listRemoteAssociatedStudioPackages();
-		      DownloadablePackage snapshotPkg = getSnapshot(pkgs);
-		      String studioPackage = "";
-		      if (snapshotPkg != null) {
-		    	  studioPackage = snapshotPkg.getId();
-		    	  studioJar = studioPackage.replace("-0.0.0-SNAPSHOT", "")+".jar";
-		      } else {
-		    	  logger.info("No Studio Package found.");
-		      }
-		      	      
-		      CodeSource src = Framework.class.getProtectionDomain().getCodeSource();
-		      if (src != null) {
-		    	url = src.getLocation().toString();
-		    	String path[] = url.split("/");
-		    	url = url.replace(path[path.length-1], studioJar);	
-		    	url = url.replace("file:","");
-		       
-		    	//TODO 
-		    	//Create the GraphViz folder if it doesn't exist
-		    	
-		        CmdParameters params2 = new CmdParameters();
-		        params2.addNamedParameter("studioJar", url);
-		        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
-		        commandLineExecutorComponent.execCommand("copy-studio-jar", params2);
-		        		        
-		        CmdParameters params = new CmdParameters();
-		        params.addNamedParameter("dir", nuxeoHomePath+File.separator+"GraphViz");
-		        params.addNamedParameter("studioJar", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
-		        commandLineExecutorComponent.execCommand("extract-studio-xml", params);
-		      	
-		     } 
-		      	  
-		    Component component = (Component) unmarshaller.unmarshal(new File(nuxeoHomePath+File.separator+"GraphViz"+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
+    	String nuxeoHomePath = Environment.getDefault().getServerHome().getAbsolutePath();	
+    	try {		      
+		    studioJar = getStudioJar();
+		    extractXMLFromStudioJar(url, studioJar, nuxeoHomePath, commandLineExecutorComponent);
+		    map = generateGraphFromXML(studioJar, nuxeoHomePath, commandLineExecutorComponent);
+	    } catch (Exception e) {
+	      logger.error("Exception while ",e);
+	    }
+    	return new StringBlob(map);     	
+    } 
+    
+    
+    public static boolean isSnapshot(DownloadablePackage pkg) {
+		return ((pkg.getVersion() != null) && (pkg.getVersion().toString().endsWith("0.0.0-SNAPSHOT")));
+	}
+
+	public static DownloadablePackage getSnapshot(List<DownloadablePackage> pkgs) {
+		for (DownloadablePackage pkg : pkgs) {
+			if (isSnapshot(pkg)) {
+				return pkg;
+			}
+		}
+		return null;
+	}
+
+	 public void writeToFile(String path, String content) {
+			FileOutputStream fop = null;
+			File file;
+			try {
+				file = new File(path);
+				fop = new FileOutputStream(file);
+
+				// if file doesnt exists, then create it
+				if (!file.exists()) {
+					file.createNewFile();
+				}
+				// get the content in bytes
+				byte[] contentInBytes = content.getBytes();
+
+				fop.write(contentInBytes);
+				fop.flush();
+				fop.close();
+
+			} catch (IOException e) {
+				logger.error("Error while writing into file ", e);
+			} finally {
+				try {
+					if (fop != null) {
+						fop.close();
+					}
+				} catch (IOException e) {
+					logger.error("Error while writing into file ", e);
+				}
+			}
+		} 
+
+	 public String cleanUpForDot(String content){
+		 content = content.replaceAll("\\.", "");
+		 content = content.replaceAll("\\/", "");
+		 content = content.replaceAll("\\-", "_");
+		 //content = content.replaceAll(".", "");
+		 return content;
+	 }
+	 
+	 public String getStudioJar(){
+		 String studioJar = "";
+		 PackageManager pm = Framework.getLocalService(PackageManager.class);
+	      List<DownloadablePackage> pkgs = pm.listRemoteAssociatedStudioPackages();
+	      DownloadablePackage snapshotPkg = getSnapshot(pkgs);
+	      String studioPackage = "";
+	      if (snapshotPkg != null) {
+	    	  studioPackage = snapshotPkg.getId();
+	    	  studioJar = studioPackage.replace("-0.0.0-SNAPSHOT", "")+".jar";
+	      } else {
+	    	  logger.info("No Studio Package found.");
+	      }
+	      return studioJar;
+	 }
+	 
+	 public void extractXMLFromStudioJar(String url, String studioJar, String nuxeoHomePath, CommandLineExecutorComponent commandLineExecutorComponent) throws CommandNotAvailable, IOException{
+	      CodeSource src = Framework.class.getProtectionDomain().getCodeSource();
+	      if (src != null) {
+	    	url = src.getLocation().toString();
+	    	String path[] = url.split("/");
+	    	url = url.replace(path[path.length-1], studioJar);	
+	    	url = url.replace("file:","");
+	       
+	    	//Create the GraphViz folder if it doesn't exist
+	    	File dir = new File(nuxeoHomePath+File.separator+"GraphViz");
+	    	if(!dir.exists()) { 
+	    		try{
+	    			dir.mkdir();
+	    	    } 
+	    	    catch(SecurityException se){
+	    	       logger.error("Error while creating the directory [GraphViz]", se);
+	    	    }
+	    	}
+	    	
+	        CmdParameters params2 = new CmdParameters();
+	        params2.addNamedParameter("studioJar", url);
+	        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
+	        commandLineExecutorComponent.execCommand("copy-studio-jar", params2);
+	        		        
+	        Runtime rt = Runtime.getRuntime();
+	        String[] cmd = { "/bin/sh", "-c", "cd "+nuxeoHomePath+File.separator+"GraphViz; jar xf "+studioJar };
+	        //Process pr = rt.exec(nuxeoHomePath+File.separator+"templates"+File.separator+"graphviz"+File.separator+"graphviz.sh "+nuxeoHomePath+File.separator+"GraphViz " + nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
+	        //Process pr = rt.exec("cd "+nuxeoHomePath+File.separator+"GraphViz && jar xf "+studioJar);
+	        Process pr = rt.exec(cmd);
+	
+	    }
+	 }
+	 
+	 public String generateGraphFromXML(String studioJar, String nuxeoHomePath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
+		 JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
+		 Unmarshaller unmarshaller = jc.createUnmarshaller();
+		 String result = "";
+		 String map = "";
+		 Component component = (Component) unmarshaller.unmarshal(new File(nuxeoHomePath+File.separator+"GraphViz"+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
 		    
 		    String rank = "subgraph entryPoint {\n"+
 		    			  "		rank=\"same\";\n";
@@ -192,63 +268,6 @@ public class GenerateGraph {
 		    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.cmapx");
 		    commandLineExecutorComponent.execCommand("dot", parameters);
 		    map = FileUtils.readFileToString(new File(nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.cmapx"));
-		   
-	    } catch (Exception e) {
-	      logger.error(e);
-	    }
-
-    	return new StringBlob(map); 
-    	
-    }   
-    public static boolean isSnapshot(DownloadablePackage pkg) {
-		return ((pkg.getVersion() != null) && (pkg.getVersion().toString().endsWith("0.0.0-SNAPSHOT")));
-	}
-
-	public static DownloadablePackage getSnapshot(List<DownloadablePackage> pkgs) {
-		for (DownloadablePackage pkg : pkgs) {
-			if (isSnapshot(pkg)) {
-				return pkg;
-			}
-		}
-		return null;
-	}
-
-	 public void writeToFile(String path, String content) {
-			FileOutputStream fop = null;
-			File file;
-			try {
-				file = new File(path);
-				fop = new FileOutputStream(file);
-
-				// if file doesnt exists, then create it
-				if (!file.exists()) {
-					file.createNewFile();
-				}
-				// get the content in bytes
-				byte[] contentInBytes = content.getBytes();
-
-				fop.write(contentInBytes);
-				fop.flush();
-				fop.close();
-
-			} catch (IOException e) {
-				e.printStackTrace();
-			} finally {
-				try {
-					if (fop != null) {
-						fop.close();
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		} 
-
-	 public String cleanUpForDot(String content){
-		 content = content.replaceAll("\\.", "");
-		 content = content.replaceAll("\\/", "");
-		 content = content.replaceAll("\\-", "_");
-		 //content = content.replaceAll(".", "");
-		 return content;
+		    return map;
 	 }
 }
