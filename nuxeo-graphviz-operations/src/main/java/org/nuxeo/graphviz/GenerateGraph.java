@@ -59,8 +59,22 @@ public class GenerateGraph {
     	String nuxeoHomePath = Environment.getDefault().getServerHome().getAbsolutePath();	
     	try {		      
 		    studioJar = getStudioJar();
-		    extractXMLFromStudioJar(url, studioJar, nuxeoHomePath, commandLineExecutorComponent);
-		    map = generateGraphFromXML(studioJar, nuxeoHomePath, commandLineExecutorComponent);
+		    
+		    //build the studio jar path
+		    CodeSource src = Framework.class.getProtectionDomain().getCodeSource();
+		    if (src != null) {
+		    	url = src.getLocation().toString();
+		    	String path[] = url.split("/");
+		    	url = url.replace(path[path.length-1], studioJar);	
+		    	url = url.replace("file:","");
+		    } 
+		    
+		    copyStudioJar(url, studioJar, nuxeoHomePath, commandLineExecutorComponent);
+		    String graphVizFolderPath = nuxeoHomePath+File.separator+"GraphViz";
+		    extractXMLFromStudioJar(studioJar, graphVizFolderPath);
+		    String studioProjectName = studioJar.replace(".jar", "");
+		    String destinationPath = nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz";
+		    map = generateGraphFromXML(studioProjectName, destinationPath, graphVizFolderPath, commandLineExecutorComponent);
 	    } catch (Exception e) {
 	      logger.error("Exception while ",e);
 	    }
@@ -81,193 +95,189 @@ public class GenerateGraph {
 		return null;
 	}
 
-	 public void writeToFile(String path, String content) {
-			FileOutputStream fop = null;
-			File file;
+	public void writeToFile(String path, String content) {
+		FileOutputStream fop = null;
+		File file;
+		try {
+			file = new File(path);
+			fop = new FileOutputStream(file);
+
+			// if file doesnt exists, then create it
+			if (!file.exists()) {
+				file.createNewFile();
+			}
+			// get the content in bytes
+			byte[] contentInBytes = content.getBytes();
+
+			fop.write(contentInBytes);
+			fop.flush();
+			fop.close();
+
+		} catch (IOException e) {
+			logger.error("Error while writing into file ", e);
+		} finally {
 			try {
-				file = new File(path);
-				fop = new FileOutputStream(file);
-
-				// if file doesnt exists, then create it
-				if (!file.exists()) {
-					file.createNewFile();
+				if (fop != null) {
+					fop.close();
 				}
-				// get the content in bytes
-				byte[] contentInBytes = content.getBytes();
-
-				fop.write(contentInBytes);
-				fop.flush();
-				fop.close();
-
 			} catch (IOException e) {
 				logger.error("Error while writing into file ", e);
-			} finally {
-				try {
-					if (fop != null) {
-						fop.close();
-					}
-				} catch (IOException e) {
-					logger.error("Error while writing into file ", e);
-				}
 			}
-		} 
+		}
+	} 
 
-	 public String cleanUpForDot(String content){
+	public String cleanUpForDot(String content){
 		 content = content.replaceAll("\\.", "");
 		 content = content.replaceAll("\\/", "");
 		 content = content.replaceAll("\\-", "_");
 		 //content = content.replaceAll(".", "");
 		 return content;
-	 }
+	}
 	 
-	 public String getStudioJar(){
-		 String studioJar = "";
-		 PackageManager pm = Framework.getLocalService(PackageManager.class);
-	      List<DownloadablePackage> pkgs = pm.listRemoteAssociatedStudioPackages();
-	      DownloadablePackage snapshotPkg = getSnapshot(pkgs);
-	      String studioPackage = "";
-	      if (snapshotPkg != null) {
-	    	  studioPackage = snapshotPkg.getId();
-	    	  studioJar = studioPackage.replace("-0.0.0-SNAPSHOT", "")+".jar";
-	      } else {
-	    	  logger.info("No Studio Package found.");
-	      }
-	      return studioJar;
-	 }
-	 
-	 public void extractXMLFromStudioJar(String url, String studioJar, String nuxeoHomePath, CommandLineExecutorComponent commandLineExecutorComponent) throws CommandNotAvailable, IOException{
-	      CodeSource src = Framework.class.getProtectionDomain().getCodeSource();
-	      if (src != null) {
-	    	url = src.getLocation().toString();
-	    	String path[] = url.split("/");
-	    	url = url.replace(path[path.length-1], studioJar);	
-	    	url = url.replace("file:","");
-	       
-	    	//Create the GraphViz folder if it doesn't exist
-	    	File dir = new File(nuxeoHomePath+File.separator+"GraphViz");
-	    	if(!dir.exists()) { 
-	    		try{
-	    			dir.mkdir();
-	    	    } 
-	    	    catch(SecurityException se){
-	    	       logger.error("Error while creating the directory [GraphViz]", se);
-	    	    }
-	    	}
-	    	
-	        CmdParameters params2 = new CmdParameters();
-	        params2.addNamedParameter("studioJar", url);
-	        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
-	        commandLineExecutorComponent.execCommand("copy-studio-jar", params2);
-	        		        
-	        Runtime rt = Runtime.getRuntime();
-	        String[] cmd = { "/bin/sh", "-c", "cd "+nuxeoHomePath+File.separator+"GraphViz; jar xf "+studioJar };
-	        //Process pr = rt.exec(nuxeoHomePath+File.separator+"templates"+File.separator+"graphviz"+File.separator+"graphviz.sh "+nuxeoHomePath+File.separator+"GraphViz " + nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
-	        //Process pr = rt.exec("cd "+nuxeoHomePath+File.separator+"GraphViz && jar xf "+studioJar);
-	        Process pr = rt.exec(cmd);
-	
+	public String getStudioJar(){
+		String studioJar = "";
+		PackageManager pm = Framework.getLocalService(PackageManager.class);
+	    List<DownloadablePackage> pkgs = pm.listRemoteAssociatedStudioPackages();
+	    DownloadablePackage snapshotPkg = getSnapshot(pkgs);
+	    String studioPackage = "";
+	    if (snapshotPkg != null) {
+	    	studioPackage = snapshotPkg.getId();
+	    	studioJar = studioPackage.replace("-0.0.0-SNAPSHOT", "")+".jar";
+	    } else {
+	    	logger.info("No Studio Package found.");
 	    }
-	 }
+	    return studioJar;
+	}
 	 
-	 public String generateGraphFromXML(String studioJar, String nuxeoHomePath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
-		 JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
-		 Unmarshaller unmarshaller = jc.createUnmarshaller();
-		 String result = "";
-		 String map = "";
-		 Component component = (Component) unmarshaller.unmarshal(new File(nuxeoHomePath+File.separator+"GraphViz"+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
+	public void copyStudioJar(String url, String studioJar, String nuxeoHomePath, CommandLineExecutorComponent commandLineExecutorComponent) throws CommandNotAvailable, IOException{
+    	//Create the GraphViz folder if it doesn't exist
+    	File dir = new File(nuxeoHomePath+File.separator+"GraphViz");
+    	if(!dir.exists()) { 
+    		try{
+    			dir.mkdir();
+    	    } 
+    	    catch(SecurityException se){
+    	       logger.error("Error while creating the directory [GraphViz]", se);
+    	    }
+    	}
+    	
+        CmdParameters params2 = new CmdParameters();
+        params2.addNamedParameter("studioJar", url);
+        params2.addNamedParameter("dest", nuxeoHomePath+File.separator+"GraphViz"+File.separator+studioJar);
+        commandLineExecutorComponent.execCommand("copy-studio-jar", params2);	        		       	    
+	}
+	 
+	public void extractXMLFromStudioJar(String studioJar, String graphVizFolderPath) throws CommandNotAvailable, IOException{
+		Runtime rt = Runtime.getRuntime();
+	    String[] cmd = { "/bin/sh", "-c", "cd "+graphVizFolderPath+"; jar xf "+studioJar };
+	    rt.exec(cmd);
+	}
+	 
+	public String generateGraphFromXML(String studioProjectName, String destinationPath, String graphVizFolderPath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
+		JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
+		Unmarshaller unmarshaller = jc.createUnmarshaller();
+		String result = "";
+		String map = "";
+		Component component = (Component) unmarshaller.unmarshal(new File(graphVizFolderPath+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
 		    
-		    String rank = "subgraph entryPoint {\n"+
+		String rank = "subgraph entryPoint {\n"+
 		    			  "		rank=\"same\";\n";
 		    
-		    result = "digraph G {\nrankdir=\"LR\";\n"+
+		result = "digraph G {\nrankdir=\"LR\";\n"+
 		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
 		    "node [fontname = \"helvetica\", fontsize=11];\n"+
 		    "edge [fontname = \"helvetica\", fontsize=11];\n";
-		    List<Extension> extensions = component.getExtension();
-		    String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
-		    // Create a Pattern object
-		    Pattern r = Pattern.compile(pattern);
+		List<Extension> extensions = component.getExtension();
+		String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
+		// Create a Pattern object
+		Pattern r = Pattern.compile(pattern);
 		    
-		    for(Extension extension:extensions){
-		    	String point = extension.getPoint();
-		    	switch (point){
-		    		case EXTENSIONPOINT_ACTIONS : 
-		    			try{
-		    				List<Action> actions = extension.getAction();
-		    				for(Action action:actions){
-		    					String chainId = "";
-		    					try{
-		    						chainId = action.getLink();
-		    						// Now create matcher object.
-		    					    Matcher m = r.matcher(chainId);
-		    					    if (m.find( )) {
-		    					    	chainId = m.group(1);
-		    					    }
-		    					}catch(Exception e){
-		    						logger.error("Error when getting chainId", e);
+		for(Extension extension:extensions){
+			String point = extension.getPoint();
+		    switch (point){
+		    	case EXTENSIONPOINT_ACTIONS : 
+		    		try{
+		    			List<Action> actions = extension.getAction();
+		    			for(Action action:actions){
+		    				String chainId = "";
+		    				try{
+		    					chainId = action.getLink();
+		    					if(chainId == null){
+		    						continue;
 		    					}
-		    					String cleanedActionId = cleanUpForDot(action.getId());
+		    					// Now create matcher object.		    						
+		    				    Matcher m = r.matcher(chainId);
+		    				    if (m.find( )) {
+		    				    	chainId = m.group(1);
+		    				    }
+		    				}catch(Exception e){
+		    					logger.error("Error when getting chainId", e);
+		    				}
+		    				String cleanedActionId = cleanUpForDot(action.getId());
 	    						
-		    					if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
-		    						String cleanedChainId = cleanUpForDot(chainId);
-		    						String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    						result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
-		    						result += cleanedActionId+" -> "+cleanedChainId+";\n";
-		    					}
-		    					result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
-		    					rank += cleanedActionId+";";	    						    					
-		    				}
-		    			}catch(Exception e){
-		    				logger.error("Error when getting Actions", e);
-		    			}
-		    			break;
-		    		case EXTENSIONPOINT_CHAIN :
-		    			try{
-		    				List<Chain> chains = extension.getChain();
-		    				for(Chain chain:chains){
-		    					String chainId = chain.getId();
+		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
+		    					String cleanedChainId = cleanUpForDot(chainId);
 		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    					logger.error("chain description "+chain.getDescription());
-	    						result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioJar.replace(".jar", "")+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+		    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+		    					result += cleanedActionId+" -> "+cleanedChainId+";\n";
+		    				}
+		    				result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+		    				rank += cleanedActionId+";";	    						    					
+		    			}
+		    		}catch(Exception e){
+		    			logger.error("Error when getting Actions", e);
+		    		}
+		    		break;
+		    	case EXTENSIONPOINT_CHAIN :
+		    		try{
+		    			List<Chain> chains = extension.getChain();
+		    			for(Chain chain:chains){
+		    				String chainId = chain.getId();
+		    				String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+		    				logger.error("chain description "+chain.getDescription());
+	    					result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
 
-		    					//result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
-		    				}
-		    			}catch(Exception e){
-		    				logger.error("Error when getting Chains", e);
-		    			}
-		    			break;	    		
-		    		case EXTENSIONPOINT_EVENT_HANDLERS : 
-		    			try{
-		    				List<Handler> handlers = extension.getHandler();
-		    				for(Handler handler:handlers){
-		    					handler.getChainId();
-		    					
-		    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
-		    					result += cleanUpForDot(handler.getChainId())+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
-		    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
-		    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
-		    				}
-		    			}catch(Exception e){
-		    				logger.error("Error when getting Chains", e);
-		    			}
-		    			break;
-		    	}
-		    }
-		    result += rank+"\n}\n";
-	    	result += "}";
+	    					//result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
+	    				}
+	    			}catch(Exception e){
+	    				logger.error("Error when getting Chains", e);
+	    			}
+	    			break;	    		
+	    		case EXTENSIONPOINT_EVENT_HANDLERS : 
+	    			try{
+	    				List<Handler> handlers = extension.getHandler();
+	    				for(Handler handler:handlers){
+	    					handler.getChainId();
+	    					
+	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
+	    					result += cleanUpForDot(handler.getChainId())+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
+	    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
+	    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
+	    				}
+	    			}catch(Exception e){
+	    				logger.error("Error when getting Chains", e);
+	    			}
+	    			break;
+	    	}
+	    }
+	    result += rank+"\n}\n";
+    	result += "}";
 	
-		    writeToFile(nuxeoHomePath+File.separator+"GraphViz"+File.separator+File.separator+"input.dot", result);
+	    writeToFile(graphVizFolderPath+File.separator+File.separator+"input.dot", result);
 		        
-		    CmdParameters parameters = new CmdParameters();
-		    		    
-		    parameters.addNamedParameter("inputFile", nuxeoHomePath+File.separator+"GraphViz"+File.separator+"input.dot");
-		    parameters.addNamedParameter("format", "png");
-		    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.png");
-		    commandLineExecutorComponent.execCommand("dot", parameters);
+	    CmdParameters parameters = new CmdParameters();
 		    
-		    parameters.addNamedParameter("format", "cmapx");
-		    parameters.addNamedParameter("outputFile", nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.cmapx");
-		    commandLineExecutorComponent.execCommand("dot", parameters);
-		    map = FileUtils.readFileToString(new File(nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz"+File.separator+"img.cmapx"));
-		    return map;
-	 }
+	    //Generate png from dot
+	    parameters.addNamedParameter("inputFile", graphVizFolderPath+File.separator+"input.dot");
+	    parameters.addNamedParameter("format", "png");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"img.png");
+	    commandLineExecutorComponent.execCommand("dot", parameters);
+		    
+	    //Generate map from dot
+	    parameters.addNamedParameter("format", "cmapx");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"img.cmapx");
+	    commandLineExecutorComponent.execCommand("dot", parameters);
+	    map = FileUtils.readFileToString(new File(destinationPath+File.separator+"img.cmapx"));
+	    return map;
+	}
 }

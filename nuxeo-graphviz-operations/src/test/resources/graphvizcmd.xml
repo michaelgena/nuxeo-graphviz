@@ -6,6 +6,7 @@
 	    point="command">
 			<command enabled="true" name="dot">
 	          	<commandLine>dot</commandLine>
+	          	<!--commandLine>/usr/local/bin/dot</commandLine-->
 		        <parameterString> -T#{format} #{inputFile} -o #{outputFile}</parameterString>
 		        <winParameterString> -T#{format} #{inputFile} -o #{outputFile}</winParameterString>
 		        <installationDirective>You need to install GraphViz from http://www.graphviz.org</installationDirective>
