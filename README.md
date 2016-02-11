@@ -1,23 +1,15 @@
-# nuxeo-es-synonyms
+# nuxeo-graphviz
 ===================
 
-This plug-in enables the administration of synonyms through the admin interface
+This plug-in enables the visualization of the studio configuration.
 
+## List of Items Displayed
 
+- Automation chains
+- Automation scripting
+- User Actions
+- Event Handlers
 
-## List of Features
-
-- Elasticsearch analyzer which use the synonyms filter
-- Nuxeo operations to read and write synonyms and to run a reindexation of Elasticsearch
-- A UI based on Web Components to visualize and edit synonyms through the admin interface
-
-**Important: if you're running ElasticSearch as a standalone you need to do 2 things.**
-
-1) Copy the file nuxeo-es-synonyms/nuxeo-es-synonyms-mp/src/main/resources/install/templates/es/config/synonyms.txt into the folder etc/elasticsearch/
-
-2) Add an entry in the nuxeo.conf file for the property org.nuxeo.synonyms.path= /the/path/to/the/synonyms.txt
-
-If you want to enable autoreindexation of ElasticSearch everytime the synonyms change you need to add an entry in the nuxeo.conf file for the property org.nuxeo.synonyms.autoreindex=true
 
 ## Build
 ### Install dependencies
@@ -63,7 +55,7 @@ This lets you run `gulp` and `bower` from the command line.
 4)  Install the app's local `npm` and `bower` dependencies.
 
 ```
-cd nuxeo-es-synonyms/nuxeo-es-synonyms-ui
+cd nuxeo-graphviz/nuxeo-graphviz-ui
 npm install
 bower install
 ```

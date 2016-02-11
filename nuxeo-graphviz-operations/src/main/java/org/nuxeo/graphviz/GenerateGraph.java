@@ -46,7 +46,7 @@ public class GenerateGraph {
     public static final String ID = "GenerateGraph";
     private Log logger = LogFactory.getLog(GenerateGraph.class);
     public static final String SNAPSHOT_SUFFIX = "0.0.0-SNAPSHOT";
-    public static final String EXTENSIONPOINT_CHAIN = "chain";
+    public static final String EXTENSIONPOINT_CHAIN = "chains";
     public static final String EXTENSIONPOINT_EVENT_HANDLERS = "event-handlers";
     public static final String EXTENSIONPOINT_ACTIONS = "actions";
 
@@ -126,7 +126,7 @@ public class GenerateGraph {
 		}
 	} 
 
-	public String cleanUpForDot(String content){
+	public static String cleanUpForDot(String content){
 		 content = content.replaceAll("\\.", "");
 		 content = content.replaceAll("\\/", "");
 		 content = content.replaceAll("\\-", "_");
@@ -182,7 +182,7 @@ public class GenerateGraph {
 		    
 		String rank = "subgraph entryPoint {\n"+
 		    			  "		rank=\"same\";\n";
-		    
+		String rankChain = "";    
 		result = "digraph G {\nrankdir=\"LR\";\n"+
 		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
 		    "node [fontname = \"helvetica\", fontsize=11];\n"+
@@ -202,7 +202,7 @@ public class GenerateGraph {
 		    				String chainId = "";
 		    				try{
 		    					chainId = action.getLink();
-		    					if(chainId == null){
+		    					if(chainId == null || chainId.startsWith("/")){
 		    						continue;
 		    					}
 		    					// Now create matcher object.		    						
@@ -221,6 +221,7 @@ public class GenerateGraph {
 		    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
 		    					result += cleanedActionId+" -> "+cleanedChainId+";\n";
 		    				}
+		    				
 		    				result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
 		    				rank += cleanedActionId+";";	    						    					
 		    			}
@@ -235,9 +236,22 @@ public class GenerateGraph {
 		    				String chainId = chain.getId();
 		    				String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
 		    				logger.error("chain description "+chain.getDescription());
-	    					result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
-
-	    					//result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
+	    					result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+(chain.getDescription() != null ? chain.getDescription():"")+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+	    					
+		    				//handle the link between Automation chains
+	    					if(chain.getOperation() != null){
+	    						for(org.nuxeo.jaxb.Component.Extension.Chain.Operation operation:chain.getOperation()){
+	    							if(("RunOperation").equals(operation.getId())){
+	    								for(org.nuxeo.jaxb.Component.Extension.Chain.Operation.Param param : operation.getParam()){
+	    									if(("id").equals(param.getName())){
+	    										
+	    										result += cleanUpForDot(chain.getId())+" -> "+cleanUpForDot(param.getValue())+";\n";
+	    									}
+	    								}
+	    							}
+	    						}
+	    					}
+	    					rankChain += cleanUpForDot(chain.getId())+";";
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting Chains", e);
@@ -260,7 +274,7 @@ public class GenerateGraph {
 	    			break;
 	    	}
 	    }
-	    result += rank+"\n}\n";
+	    result += rank+"\n"+rankChain+"\n}\n";
     	result += "}";
 	
 	    writeToFile(graphVizFolderPath+File.separator+File.separator+"input.dot", result);
@@ -280,4 +294,119 @@ public class GenerateGraph {
 	    map = FileUtils.readFileToString(new File(destinationPath+File.separator+"img.cmapx"));
 	    return map;
 	}
+	
+	public static void main(String[] args){
+		System.out.println("ddd");
+		String graphVizFolderPath = "/Users/mgena/Documents/GraphViz/nuxeo-cap-8.1-tomcat/GraphViz";
+		String studioProjectName = "mgena-SANDBOX";
+		try{
+		JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
+		Unmarshaller unmarshaller = jc.createUnmarshaller();
+		String result = "";
+		String map = "";
+		Component component = (Component) unmarshaller.unmarshal(new File("/Users/mgena/Documents/GraphViz/nuxeo-cap-8.1-tomcat/GraphViz/OSGI-INF/extensions.xml"));
+		
+		String rank = "subgraph entryPoint {\n"+
+		    			  "		rank=\"same\";\n";
+		    
+		result = "digraph G {\nrankdir=\"LR\";\n"+
+		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
+		    "node [fontname = \"helvetica\", fontsize=11];\n"+
+		    "edge [fontname = \"helvetica\", fontsize=11];\n";
+		List<Extension> extensions = component.getExtension();
+		String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
+		// Create a Pattern object
+		Pattern r = Pattern.compile(pattern);
+		    
+		for(Extension extension:extensions){
+			String point = extension.getPoint();
+		    switch (point){
+		    	case EXTENSIONPOINT_ACTIONS : 
+		    		try{
+		    			List<Action> actions = extension.getAction();
+		    			for(Action action:actions){
+		    				String chainId = "";
+		    				try{
+		    					chainId = action.getLink();
+		    					if(chainId == null || chainId.startsWith("/")){
+		    						continue;
+		    					}
+		    					// Now create matcher object.		    						
+		    				    Matcher m = r.matcher(chainId);
+		    				    if (m.find( )) {
+		    				    	chainId = m.group(1);
+		    				    }
+		    				}catch(Exception e){
+		    					e.printStackTrace();
+		    				}
+		    				String cleanedActionId = cleanUpForDot(action.getId());
+	    						
+		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
+		    					String cleanedChainId = cleanUpForDot(chainId);
+		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+		    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+		    					result += cleanedActionId+" -> "+cleanedChainId+";\n";
+		    				}
+		    				
+		    				result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+		    				rank += cleanedActionId+";";	    						    					
+		    			}
+		    		}catch(Exception e){
+		    			e.printStackTrace();
+		    		}
+		    		break;
+		    	case EXTENSIONPOINT_CHAIN :
+		    		try{
+		    			List<Chain> chains = extension.getChain();
+		    			for(Chain chain:chains){
+		    				String chainId = chain.getId();
+		    				String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+		    				System.out.println("chain description "+chain.getDescription());
+	    					result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+	    					
+		    				//handle the link between Automation chains
+	    					if(chain.getOperation() != null){
+	    						for(org.nuxeo.jaxb.Component.Extension.Chain.Operation operation:chain.getOperation()){
+	    							if(("RunOperation").equals(operation.getId())){
+	    								for(org.nuxeo.jaxb.Component.Extension.Chain.Operation.Param param : operation.getParam()){
+	    									if(("id").equals(param.getName())){
+	    										
+	    										result += cleanUpForDot(chain.getId())+" -> "+cleanUpForDot(param.getValue())+";\n";
+	    									}
+	    								}
+	    							}
+	    						}
+	    					}
+	    				
+	    					//result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
+	    				}
+	    			}catch(Exception e){
+	    				e.printStackTrace();
+	    			}
+	    			break;	    		
+	    		case EXTENSIONPOINT_EVENT_HANDLERS : 
+	    			try{
+	    				List<Handler> handlers = extension.getHandler();
+	    				for(Handler handler:handlers){
+	    					handler.getChainId();
+	    					
+	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
+	    					result += cleanUpForDot(handler.getChainId())+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
+	    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
+	    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
+	    				}
+	    			}catch(Exception e){
+	    				e.printStackTrace();
+	    			}
+	    			break;
+	    	}
+	    }
+	    result += rank+"\n}\n";
+    	result += "}";
+    	System.out.println(result);
+		}catch(Exception e){
+			System.out.println(e);
+		}
+	}
+	
 }
