@@ -1,6 +1,6 @@
 # nuxeo-graphviz
 ===================
-
+<img src="screenshot1.png"/> 
 This plug-in enables the visualization of the studio configuration based on GraphViz.
 
 ## List of Items Displayed
