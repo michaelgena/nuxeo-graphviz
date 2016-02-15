@@ -1,4 +1,5 @@
 <component name="synonyms.contrib">
+  <require>org.nuxeo.runtime.started</require>
   <extension point="actions" target="org.nuxeo.ecm.platform.actions.ActionService">
       <action id="StudioConfigurationManager" label="Studio Configuration" link="/graphviz-view/graphviz.xhtml" order="25">
         <category>ConnectApps_sub_tab</category>

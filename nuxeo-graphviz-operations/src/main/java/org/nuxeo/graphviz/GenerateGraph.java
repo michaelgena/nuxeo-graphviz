@@ -180,10 +180,27 @@ public class GenerateGraph {
 		String map = "";
 		Component component = (Component) unmarshaller.unmarshal(new File(graphVizFolderPath+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
 		    
-		String rank = "subgraph entryPoint {\n"+
-		    			  "		rank=\"same\";\n";
-		String rankChain = "";    
-		result = "digraph G {\nrankdir=\"LR\";\n"+
+		String userActions = "subgraph cluster_0 {\n"+
+						 	 "	node [style=filled];\n"+
+						     "	label = \"User Actions\";\n"+
+						     "  color=\"#00ADFF\";\n";
+		
+		String automationChainsAndScripting = "subgraph cluster_1 {\n"+
+				 							  "	node [style=filled];\n"+
+				 							  " label = \"Automation Chains & Scripting\";\n"+
+				 							  " color=\"#28A3C7\";\n";
+		
+		String events =  "subgraph cluster_2 {\n"+
+				 		 "	node [style=filled];\n"+
+				 		 "  label = \"Events\";\n"+
+				 		 " 	color=\"#FF462A\";\n"; 
+		
+		String xhtmls = "subgraph cluster_3 {\n"+
+		 		 	   "	node [style=filled];\n"+
+		 		 	   " 	label = \"XHTMLs\";\n"+
+		 		 	   "  	color=Green;\n"; 
+		
+		result = "digraph G {\n"+
 		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
 		    "node [fontname = \"helvetica\", fontsize=11];\n"+
 		    "edge [fontname = \"helvetica\", fontsize=11];\n";
@@ -191,7 +208,11 @@ public class GenerateGraph {
 		String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
 		// Create a Pattern object
 		Pattern r = Pattern.compile(pattern);
-		    
+		int nbUserActions = 0;  
+		int nbAutomationChains = 0;  
+		int nbAutomationScripting = 0; 
+		int nbEvents = 0;
+		int nbXhtmls = 0;
 		for(Extension extension:extensions){
 			String point = extension.getPoint();
 		    switch (point){
@@ -202,7 +223,7 @@ public class GenerateGraph {
 		    				String chainId = "";
 		    				try{
 		    					chainId = action.getLink();
-		    					if(chainId == null || chainId.startsWith("/")){
+		    					if(chainId == null){
 		    						continue;
 		    					}
 		    					// Now create matcher object.		    						
@@ -218,12 +239,35 @@ public class GenerateGraph {
 		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
 		    					String cleanedChainId = cleanUpForDot(chainId);
 		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
-		    					result += cleanedActionId+" -> "+cleanedChainId+";\n";
+		    					result += cleanedActionId+"_action -> "+cleanedChainId+";\n";
+
+			    				if (chainId.contains(".xhtml")){
+			    					result += cleanedChainId + " [label=\""+chainId+"\",shape=box,fontcolor=white,color=\"Green\",fillcolor=\"Green\",style=\"filled\"];\n";  						
+			    					if(nbXhtmls >0){
+				    					xhtmls += "->";
+				    				}
+			    					xhtmls += cleanedChainId;
+			    					nbXhtmls ++;
+			    				}else if(!automationChainsAndScripting.contains(cleanedChainId)){
+			    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  									    					
+			    					if(nbAutomationChains >0 || nbAutomationScripting >0){
+			    						automationChainsAndScripting += "->";
+				    				}
+			    					
+			    					automationChainsAndScripting += cleanedChainId;
+			    					if(chainId.startsWith("javascript")){
+				    					nbAutomationScripting ++;
+				    				}else{
+				    					nbAutomationChains ++;
+				    				}
+			    				}
 		    				}
-		    				
-		    				result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
-		    				rank += cleanedActionId+";";	    						    					
+		    				result += cleanedActionId+"_action [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+			    			if(nbUserActions >0){
+			    				userActions += "->";
+			    			}   			
+			    			userActions += cleanedActionId+"_action";		
+			    			nbUserActions ++;
 		    			}
 		    		}catch(Exception e){
 		    			logger.error("Error when getting Actions", e);
@@ -235,23 +279,59 @@ public class GenerateGraph {
 		    			for(Chain chain:chains){
 		    				String chainId = chain.getId();
 		    				String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    				logger.error("chain description "+chain.getDescription());
-	    					result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+(chain.getDescription() != null ? chain.getDescription():"")+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
+		    			
+		    				String chainIdForDot = cleanUpForDot(chain.getId());
+		    				
+		    				String description = (chain.getDescription() != null ? "\n"+chain.getDescription():"");
+		    				description = description.replace("\"", "\\\"");
+	    					result += chainIdForDot + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+description+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
 	    					
 		    				//handle the link between Automation chains
+	    					//TODO handle the link between Automation chains & scripting
 	    					if(chain.getOperation() != null){
 	    						for(org.nuxeo.jaxb.Component.Extension.Chain.Operation operation:chain.getOperation()){
 	    							if(("RunOperation").equals(operation.getId())){
 	    								for(org.nuxeo.jaxb.Component.Extension.Chain.Operation.Param param : operation.getParam()){
 	    									if(("id").equals(param.getName())){
-	    										
-	    										result += cleanUpForDot(chain.getId())+" -> "+cleanUpForDot(param.getValue())+";\n";
+	    										if(param.getValue().contains(":")){
+	    											String exprPattern = "*\"(.*)\":\"(.*)";
+	    											Pattern expR = Pattern.compile(exprPattern);
+	    											Matcher m = expR.matcher(param.getValue());
+	    						    				if (m.find( )) {
+	    						    					result += chainIdForDot+" -> "+cleanUpForDot(m.group(1))+";\n";
+	    						    					result += chainIdForDot+" -> "+cleanUpForDot(m.group(2))+";\n";
+	    						    				}
+	    										}else{
+	    											result += chainIdForDot+" -> "+cleanUpForDot(param.getValue())+";\n";
+	    											if(!automationChainsAndScripting.contains(cleanUpForDot(param.getValue()))){
+		    											if(nbAutomationChains >0 || nbAutomationScripting >0){
+		    					    						automationChainsAndScripting += "->";
+		    						    				}
+		    					    					
+		    					    					automationChainsAndScripting += cleanUpForDot(param.getValue());
+		    					    					if(chainId.startsWith("javascript")){
+		    						    					nbAutomationScripting ++;
+		    						    				}else{
+		    						    					nbAutomationChains ++;
+		    						    				}
+	    											}
+	    											
+	    										}
 	    									}
 	    								}
 	    							}
 	    						}
 	    					}
-	    					rankChain += cleanUpForDot(chain.getId())+";";
+	    					if(nbAutomationChains >0 || nbAutomationScripting >0){
+	    						automationChainsAndScripting += "->";
+		    				}
+	    					
+	    					automationChainsAndScripting += chainIdForDot;
+	    					if(chainId.startsWith("javascript")){
+		    					nbAutomationScripting ++;
+		    				}else{
+		    					nbAutomationChains ++;
+		    				}
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting Chains", e);
@@ -262,11 +342,32 @@ public class GenerateGraph {
 	    				List<Handler> handlers = extension.getHandler();
 	    				for(Handler handler:handlers){
 	    					handler.getChainId();
+	    					String chainIdForDot = cleanUpForDot(handler.getChainId());
 	    					
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
-	    					result += cleanUpForDot(handler.getChainId())+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
-	    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
+	    					result += chainIdForDot+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
+	    					result += chainIdForDot+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
+	    					result += chainIdForDot+"_handler"+" -> "+chainIdForDot+";\n";
+	    					
+	    					if(nbEvents > 0){
+	    						events += "->";
+	    					}
+	    					events += cleanUpForDot(handler.getChainId())+"_handler";
+	    					nbEvents ++;
+	    					
+	    					if(!automationChainsAndScripting.contains(chainIdForDot)){
+		    					if(nbAutomationChains >0 || nbAutomationScripting >0){
+		    						automationChainsAndScripting += "->";
+			    				}
+		    					
+		    					automationChainsAndScripting += chainIdForDot;
+		    					if(chainIdForDot.startsWith("javascript")){
+			    					nbAutomationScripting ++;
+			    				}else{
+			    					nbAutomationChains ++;
+			    				}
+		    				}
+	    					
+	    					
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting Chains", e);
@@ -274,7 +375,13 @@ public class GenerateGraph {
 	    			break;
 	    	}
 	    }
-	    result += rank+"\n"+rankChain+"\n}\n";
+		
+		userActions += " [style=invis];\n}";
+		automationChainsAndScripting += " [style=invis];\n}";
+		events += " [style=invis];\n}";
+		xhtmls += " [style=invis];\n}";
+		
+	    result += userActions+"\n"+automationChainsAndScripting+"\n"+events+"\n"+xhtmls+"\n";
     	result += "}";
 	
 	    writeToFile(graphVizFolderPath+File.separator+File.separator+"input.dot", result);
@@ -369,7 +476,7 @@ public class GenerateGraph {
 	    						for(org.nuxeo.jaxb.Component.Extension.Chain.Operation operation:chain.getOperation()){
 	    							if(("RunOperation").equals(operation.getId())){
 	    								for(org.nuxeo.jaxb.Component.Extension.Chain.Operation.Param param : operation.getParam()){
-	    									if(("id").equals(param.getName())){
+	    									if(("id").equals(param.getName()) && !param.getValue().startsWith("expr:")){
 	    										
 	    										result += cleanUpForDot(chain.getId())+" -> "+cleanUpForDot(param.getValue())+";\n";
 	    									}

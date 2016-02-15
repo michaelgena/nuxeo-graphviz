@@ -8,12 +8,16 @@
     .center {
         text-align: center;
     }
+    .left {
+        text-align: left;
+    }
   </style>
   <nx-connection id="nx"></nx-connection>
   <nuxeo-operation id="GenerateGraph" op="GenerateGraph" params="" response="{{response}}"></nuxeo-operation>
 
   <div class="bubbleBox">
-      <div class="bubbleHeader">
+      <div id="fullscreen" class="bubbleHeader" style="overflow-x:scroll;">
+        <paper-button id="fullscreen_button" raised on-tap="_toggleFullScreen">Full Screen</paper-button>
         <table width="100%">
         <tr>
           <td class="center"/>
@@ -24,11 +28,6 @@
               <template is="dom-if" if="{{!_isDefined(response)}}">
                 <img src="/nuxeo/img/big_loading.gif" >
               </template>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <paper-button raised on-tap="_refresh">Refresh</paper-button>
           </td>
         </tr>
         </tbody>
@@ -50,11 +49,16 @@
         imgUrl: {
           type:String,
           value: ''
+        },
+        isFullScreenMode:  {
+          type:Boolean,
+          value: false
         }
       },
 
       ready: function () {
         this.$.GenerateGraph.execute();
+        isFullScreenMode = false;
       },
 
       _refresh: function(){
@@ -66,6 +70,17 @@
           return true;
         } else {
           return false;
+        }
+      },
+      _toggleFullScreen: function(){
+        if(!isFullScreenMode){
+          jQuery("#fullscreen").css({"position":"absolute"}).css({"z-index":"100000"}).css({"left":"0px"}).css({"top":"-50px"}).css({"margin-bottom":"-40px"});
+          jQuery("#fullscreen_button").html("Close");
+          isFullScreenMode = true;
+        }else{
+          jQuery("#fullscreen").css({"position":""}).css({"z-index":""}).css({"left":""}).css({"top":""}).css({"margin-bottom":""});
+          jQuery("#fullscreen_button").html("Full Screen");
+          isFullScreenMode = false;
         }
       }
     });

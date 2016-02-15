@@ -1,7 +1,7 @@
 # nuxeo-graphviz
 ===================
 
-This plug-in enables the visualization of the studio configuration.
+This plug-in enables the visualization of the studio configuration based on GraphViz.
 
 ## List of Items Displayed
 
@@ -10,6 +10,8 @@ This plug-in enables the visualization of the studio configuration.
 - User Actions
 - Event Handlers
 
+## GraphViz
+You need to install GraphViz (http://www.graphviz.org/) in order to generate the graphics.
 
 ## Build
 ### Install dependencies
