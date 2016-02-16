@@ -8,6 +8,32 @@
                             <xs:element name="extension" maxOccurs="unbounded">
                                    <xs:complexType>
                                           <xs:sequence>
+                            					 <xs:element name="schema" maxOccurs="unbounded">
+				                                		<xs:complexType>
+				                                        	<xs:attribute name="name" type="xs:string"></xs:attribute>
+				                                          	<xs:attribute name="prefix" type="xs:string"></xs:attribute>
+				                                          	<xs:attribute name="override" type="xs:string"></xs:attribute>
+				                                          	<xs:attribute name="src" type="xs:string"></xs:attribute>
+				                               			</xs:complexType>
+				                               	 </xs:element>
+				                               	 <xs:element name="doctype" maxOccurs="unbounded">
+					                                   <xs:complexType>
+					                                          <xs:sequence>
+					                                          		<xs:element name="schema" maxOccurs="unbounded">
+					                                                        <xs:complexType>
+					                                                               <xs:attribute name="name" type="xs:string"></xs:attribute>
+					                                                        </xs:complexType>
+					                                                </xs:element>
+					                                                <xs:element name="facet" maxOccurs="unbounded">
+					                                                        <xs:complexType>
+					                                                               <xs:attribute name="name" type="xs:string"></xs:attribute>
+					                                                        </xs:complexType>
+					                                                </xs:element>
+					                                          </xs:sequence>
+					                                          <xs:attribute name="name" type="xs:string"></xs:attribute>
+					                                          <xs:attribute name="extends" type="xs:string"></xs:attribute>
+					                             	   </xs:complexType>
+					                             </xs:element>
                                                  <xs:element name="action" maxOccurs="unbounded">
                                                         <xs:complexType>
                                                                <xs:sequence>

@@ -7,6 +7,8 @@ package org.nuxeo.graphviz;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.security.CodeSource;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -25,6 +27,7 @@ import org.nuxeo.connect.packages.PackageManager;
 import org.nuxeo.ecm.automation.core.Constants;
 import org.nuxeo.ecm.automation.core.annotations.Operation;
 import org.nuxeo.ecm.automation.core.annotations.OperationMethod;
+import org.nuxeo.ecm.automation.core.annotations.Param;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.platform.commandline.executor.api.CmdParameters;
@@ -34,13 +37,16 @@ import org.nuxeo.jaxb.Component;
 import org.nuxeo.jaxb.Component.Extension;
 import org.nuxeo.jaxb.Component.Extension.Action;
 import org.nuxeo.jaxb.Component.Extension.Chain;
+import org.nuxeo.jaxb.Component.Extension.Doctype;
 import org.nuxeo.jaxb.Component.Extension.Handler;
+import org.nuxeo.jaxb.Component.Extension.Schema;
 import org.nuxeo.runtime.api.Framework;
+
 
 /**
  * @author mgena
  */
-@Operation(id=GenerateGraph.ID, category=Constants.CAT_EXECUTION, label="GenerateGraph", description="")
+@Operation(id=GenerateGraph.ID, category=Constants.CAT_NOTIFICATION, label="GenerateGraph", description="")
 public class GenerateGraph {
 
     public static final String ID = "GenerateGraph";
@@ -49,11 +55,18 @@ public class GenerateGraph {
     public static final String EXTENSIONPOINT_CHAIN = "chains";
     public static final String EXTENSIONPOINT_EVENT_HANDLERS = "event-handlers";
     public static final String EXTENSIONPOINT_ACTIONS = "actions";
-
+    public static final String EXTENSIONPOINT_SCHEMAS = "schema";
+    public static final String EXTENSIONPOINT_DOCTYPE = "doctype";
+    public static final String COMMON_SCHEMAS = "common,dublincore,uid,task,file,picture,image_metadata,iptc,";
+    
+   
+    
     @OperationMethod
     public Blob run() {           	
     	String studioJar = "";
-    	String map = "";
+    	String mapModel = "";
+    	String mapView = "";
+    	String mapBusinessRules = "";
     	String url = "";
     	CommandLineExecutorComponent commandLineExecutorComponent = new CommandLineExecutorComponent();
     	String nuxeoHomePath = Environment.getDefault().getServerHome().getAbsolutePath();	
@@ -74,11 +87,22 @@ public class GenerateGraph {
 		    extractXMLFromStudioJar(studioJar, graphVizFolderPath);
 		    String studioProjectName = studioJar.replace(".jar", "");
 		    String destinationPath = nuxeoHomePath+File.separator+"nxserver"+File.separator+"nuxeo.war"+File.separator+"graphviz";
-		    map = generateGraphFromXML(studioProjectName, destinationPath, graphVizFolderPath, commandLineExecutorComponent);
+		   
+		    mapModel = generateModelGraphFromXML(studioProjectName, destinationPath, graphVizFolderPath, commandLineExecutorComponent);
+		   
+		    mapView = generateViewGraphFromXML(studioProjectName, destinationPath, graphVizFolderPath, commandLineExecutorComponent);
+		   
+		    mapBusinessRules = generateBusinessRulesGraphFromXML(studioProjectName, destinationPath, graphVizFolderPath, commandLineExecutorComponent);
+		   
 	    } catch (Exception e) {
 	      logger.error("Exception while ",e);
 	    }
-    	return new StringBlob(map);     	
+    	try {
+			return new StringBlob("{\"model\":\""+URLEncoder.encode(mapModel,"UTF-8")+"\", \"view\": \""+URLEncoder.encode(mapView,"UTF-8")+"\", \"businessRules\": \""+URLEncoder.encode(mapBusinessRules,"UTF-8")+"\"}");
+		} catch (UnsupportedEncodingException e) {
+			logger.error("Error while encoding result", e);
+			return null;
+		}     	
     } 
     
     
@@ -172,8 +196,261 @@ public class GenerateGraph {
 	    String[] cmd = { "/bin/sh", "-c", "cd "+graphVizFolderPath+"; jar xf "+studioJar };
 	    rt.exec(cmd);
 	}
-	 
-	public String generateGraphFromXML(String studioProjectName, String destinationPath, String graphVizFolderPath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
+	
+	
+	public String generateModelGraphFromXML(String studioProjectName, String destinationPath, String graphVizFolderPath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
+		JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
+		Unmarshaller unmarshaller = jc.createUnmarshaller();
+		String result = "";
+		String map = "";
+		Component component = (Component) unmarshaller.unmarshal(new File(graphVizFolderPath+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
+		
+		String schemas = "subgraph cluster_0 {\n"+
+	 		 	   "	node [style=filled];\n"+
+	 		 	   " 	label = \"Schemas\";\n"+
+	 		 	   "  	color=\"#24A4CC\";\n";
+		
+		String docTypes = "subgraph cluster_1 {\n"+
+	 		 	   "	node [style=filled];\n"+
+	 		 	   " 	label = \"Document Types\";\n"+
+	 		 	   "  	color=\"#1CA5FC\";\n";
+		
+		String facets = "subgraph cluster_2 {\n"+
+	 		 	   "	node [style=filled];\n"+
+	 		 	   " 	label = \"Facets\";\n"+
+	 		 	   "  	color=\"#17384E\";\n";
+		
+		result = "digraph M {\n"+
+		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
+		    "node [fontname = \"helvetica\", fontsize=11];\n"+
+		    "edge [fontname = \"helvetica\", fontsize=11];\n";
+		List<Extension> extensions = component.getExtension();
+
+		int nbSchemas = 0;
+		int nbDocTypes = 0;
+		int nbFacets = 0;
+		for(Extension extension:extensions){
+			String point = extension.getPoint();
+		    switch (point){
+	    		case EXTENSIONPOINT_SCHEMAS : 
+	    			try{
+	    				List<Schema> schemaList = extension.getSchema();
+	    				for(Schema schema : schemaList){
+	    					String schemaName = schema.getName();
+	    					//Schemas starting with var_ are reserved for worfklow tasks
+	    					//Schemas ending with _cv are reserved for content views
+	    					if(schemaName != null && !schemaName.startsWith("var_") && !schemaName.endsWith("_cv")){
+	    						result += schemaName+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+schemaName+".ds\", label=\""+schemaName+"\",shape=box,fontcolor=white,color=\"#24A4CC\",fillcolor=\"#24A4CC\",style=\"filled\"];\n";
+	    						if(nbSchemas > 0){
+		    						schemas += "->";
+		    					}
+	    						schemas += schemaName;
+	    						nbSchemas ++;
+	    					}
+	    					
+	    				}
+	    			}catch(Exception e){
+	    				logger.error("Error when getting schemas", e);
+	    			}
+	    			break;
+	    		case EXTENSIONPOINT_DOCTYPE : 
+	    			try{
+	    				List<Doctype> docTypeList = extension.getDoctype();
+	    				for(Doctype docType : docTypeList){
+	    					String docTypeName = docType.getName();
+	    					//DocType ending with _cv are created for content views
+	    					if(docTypeName != null && !docTypeName.endsWith("_cv")){
+	    						result += docTypeName+ " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+docTypeName+".doc\", label=\""+docTypeName+"\",shape=box,fontcolor=white,color=\"#1CA5FC\",fillcolor=\"#1CA5FC\",style=\"filled\"];\n";
+	    						result += docTypeName+"->"+docType.getExtends()+"[label=\"inherits\"];\n";
+	    						
+	    						List<Doctype.Schema> extraSchemas = docType.getSchema();
+	    						for(Doctype.Schema extraSchema: extraSchemas){
+	    							if(schemas.contains(extraSchema.getName()) && !("file").equals(schemas)){
+	    								result += docTypeName+"->"+extraSchema.getName()+"[label=\"extends\"];\n";
+	    							}else{	    								
+	    								result += extraSchema.getName()+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+extraSchema.getName()+".ds\", label=\""+extraSchema.getName()+"\",shape=box,fontcolor=white,color=\"#24A4CC\",fillcolor=\"#24A4CC\",style=\"filled\"];\n";
+	    	    						if(nbSchemas > 0){
+	    		    						schemas += "->";
+	    		    					}
+	    	    						schemas += extraSchema.getName();
+	    	    						nbSchemas ++;
+	    							}
+	    						}
+	    						
+	    						List<Doctype.Facet> extraFacets = docType.getFacet();
+	    						for(Doctype.Facet extraFacet : extraFacets){
+	    							result += docTypeName+"->"+extraFacet.getName()+";\n";
+	    							if(!facets.contains(extraFacet.getName())){
+		    							result += extraFacet.getName()+ " [label=\""+extraFacet.getName()+"\",shape=box,fontcolor=white,color=\"#17384E\",fillcolor=\"#17384E\",style=\"filled\"];\n";		    						
+		    							if(nbFacets >0){
+		    								facets += "->";
+		    							}
+		    							facets += extraFacet.getName();
+		    							nbFacets ++;
+		    						}
+	    						}
+    						
+	    						if(nbDocTypes > 0){
+		    						docTypes += "->";
+		    					}
+	    						docTypes += docTypeName;
+	    						nbDocTypes ++;
+	    						
+	    						/*if(!docTypes.contains(docType.getExtends())){*/
+	    							result += docType.getExtends()+ " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+docType.getExtends()+".doc\", label=\""+docType.getExtends()+"\",shape=box,fontcolor=white,color=\"#1CA5FC\",fillcolor=\"#1CA5FC\",style=\"filled\"];\n";		    						
+	    							docTypes += "->";
+	    							docTypes += docType.getExtends();
+	    							nbDocTypes ++;
+	    						/*}*/
+	    					}
+	    				}
+	    			}catch(Exception e){
+	    				logger.error("Error when getting document type", e);
+	    			}
+	    			break;
+	    	}
+	    }
+		
+		schemas += " [style=invis];\n}";
+		docTypes += " [style=invis];\n}";
+		facets += " [style=invis];\n}";
+		
+	    result += (nbSchemas>0?schemas:"")+"\n"+(nbDocTypes>0?docTypes:"")+"\n"+(nbFacets>0?facets:"")+"\n";
+    	result += "}";
+	
+	    writeToFile(graphVizFolderPath+File.separator+File.separator+"inputModel.dot", result);
+		        
+	    CmdParameters parameters = new CmdParameters();
+		    
+	    //Generate png from dot
+	    parameters.addNamedParameter("inputFile", graphVizFolderPath+File.separator+"inputModel.dot");
+	    parameters.addNamedParameter("format", "png");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"imgModel.png");
+	    commandLineExecutorComponent.execCommand("dot", parameters);
+		    
+	    //Generate map from dot
+	    parameters.addNamedParameter("format", "cmapx");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"imgModel.cmapx");
+	    commandLineExecutorComponent.execCommand("dot", parameters);
+	    map = FileUtils.readFileToString(new File(destinationPath+File.separator+"imgModel.cmapx"));
+	    return map;
+	}
+	
+	public String generateViewGraphFromXML(String studioProjectName, String destinationPath, String graphVizFolderPath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
+		JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
+		Unmarshaller unmarshaller = jc.createUnmarshaller();
+		String result = "";
+		String map = "";
+		Component component = (Component) unmarshaller.unmarshal(new File(graphVizFolderPath+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
+		    
+		String xhtmls = "subgraph cluster_0 {\n"+
+		 		 	   "	node [style=filled];\n"+
+		 		 	   " 	label = \"XHTMLs\";\n"+
+		 		 	   "  	color=Green;\n";
+
+		String docTypes = "subgraph cluster_1 {\n"+
+	 		 	   "	node [style=filled];\n"+
+	 		 	   " 	label = \"Document Types\";\n"+
+	 		 	   "  	color=\"#1CA5FC\";\n";
+		
+		result = "digraph V {\n"+
+		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
+		    "node [fontname = \"helvetica\", fontsize=11];\n"+
+		    "edge [fontname = \"helvetica\", fontsize=11];\n";
+		List<Extension> extensions = component.getExtension();
+		String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
+		// Create a Pattern object
+		Pattern r = Pattern.compile(pattern);
+		int nbXhtmls = 0;
+		int nbDocTypes = 0;
+		for(Extension extension:extensions){
+			String point = extension.getPoint();
+		    switch (point){
+		    	case EXTENSIONPOINT_ACTIONS : 
+		    		try{
+		    			List<Action> actions = extension.getAction();
+		    			for(Action action:actions){
+		    				String chainId = "";
+		    				String linkType = "";
+		    				try{
+		    					chainId = action.getLink();
+		    					linkType = action.getType();
+		    					//TODO handle the rest_document_link types, Tabs?
+		    					if(chainId == null){
+		    						continue;
+		    					}
+		    					// Now create matcher object.		    						
+		    				    Matcher m = r.matcher(chainId);
+		    				    if (m.find( )) {
+		    				    	chainId = m.group(1);
+		    				    }
+		    				}catch(Exception e){
+		    					logger.error("Error when getting chainId", e);
+		    				}
+		    				String cleanedActionId = cleanUpForDot(action.getId());
+	    						
+		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId) && chainId.contains(".xhtml")){
+		    					String cleanedChainId = cleanUpForDot(chainId);
+		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
+		    					result += cleanedActionId+"_action -> "+cleanedChainId+";\n";
+
+		    					result += cleanedChainId + " [label=\""+chainId+"\",shape=box,fontcolor=white,color=\"Green\",fillcolor=\"Green\",style=\"filled\"];\n";  						
+		    					if(nbXhtmls >0){
+			    					xhtmls += "->";
+			    				}
+		    					xhtmls += cleanedChainId;
+		    					nbXhtmls ++;
+		    				}
+		    			}
+		    		}catch(Exception e){
+		    			logger.error("Error when getting Actions", e);
+		    		}
+		    		break;
+		    	
+	    		case EXTENSIONPOINT_DOCTYPE : 
+	    			try{
+	    				List<Doctype> docTypeList = extension.getDoctype();
+	    				for(Doctype docType : docTypeList){
+	    					String docTypeName = docType.getName();
+	    					//DocType ending with _cv are created for content views
+	    					
+	    					
+	    				}
+	    			}catch(Exception e){
+	    				logger.error("Error when getting document type", e);
+	    			}
+	    			break;
+	    	}
+	    }
+		
+		
+		xhtmls += " [style=invis];\n}";
+		
+		docTypes += " [style=invis];\n}";
+	
+		
+	    result += (nbXhtmls>0?xhtmls:"")+"\n"+(nbDocTypes>0?docTypes:"")+"\n";
+    	result += "}";
+	
+	    writeToFile(graphVizFolderPath+File.separator+File.separator+"inputView.dot", result);
+		        
+	    CmdParameters parameters = new CmdParameters();
+		    
+	    //Generate png from dot
+	    parameters.addNamedParameter("inputFile", graphVizFolderPath+File.separator+"inputView.dot");
+	    parameters.addNamedParameter("format", "png");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"imgView.png");
+	    commandLineExecutorComponent.execCommand("dot", parameters);
+		    
+	    //Generate map from dot
+	    parameters.addNamedParameter("format", "cmapx");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"imgView.cmapx");
+	    commandLineExecutorComponent.execCommand("dot", parameters);
+	    map = FileUtils.readFileToString(new File(destinationPath+File.separator+"imgView.cmapx"));
+	    return map;
+	}
+	
+	public String generateBusinessRulesGraphFromXML(String studioProjectName, String destinationPath, String graphVizFolderPath, CommandLineExecutorComponent commandLineExecutorComponent) throws JAXBException, CommandNotAvailable, IOException{
 		JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
 		Unmarshaller unmarshaller = jc.createUnmarshaller();
 		String result = "";
@@ -187,20 +464,15 @@ public class GenerateGraph {
 		
 		String automationChainsAndScripting = "subgraph cluster_1 {\n"+
 				 							  "	node [style=filled];\n"+
-				 							  " label = \"Automation Chains & Scripting\";\n"+
+				 							  " label = \"Automation Chains & Scriptings\";\n"+
 				 							  " color=\"#28A3C7\";\n";
 		
 		String events =  "subgraph cluster_2 {\n"+
 				 		 "	node [style=filled];\n"+
 				 		 "  label = \"Events\";\n"+
 				 		 " 	color=\"#FF462A\";\n"; 
-		
-		String xhtmls = "subgraph cluster_3 {\n"+
-		 		 	   "	node [style=filled];\n"+
-		 		 	   " 	label = \"XHTMLs\";\n"+
-		 		 	   "  	color=Green;\n"; 
-		
-		result = "digraph G {\n"+
+
+		result = "digraph BL {\n"+
 		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
 		    "node [fontname = \"helvetica\", fontsize=11];\n"+
 		    "edge [fontname = \"helvetica\", fontsize=11];\n";
@@ -212,7 +484,7 @@ public class GenerateGraph {
 		int nbAutomationChains = 0;  
 		int nbAutomationScripting = 0; 
 		int nbEvents = 0;
-		int nbXhtmls = 0;
+	
 		for(Extension extension:extensions){
 			String point = extension.getPoint();
 		    switch (point){
@@ -221,8 +493,11 @@ public class GenerateGraph {
 		    			List<Action> actions = extension.getAction();
 		    			for(Action action:actions){
 		    				String chainId = "";
+		    				String linkType = "";
 		    				try{
 		    					chainId = action.getLink();
+		    					linkType = action.getType();
+		    					//TODO handle the rest_document_link types, Tabs?
 		    					if(chainId == null){
 		    						continue;
 		    					}
@@ -241,14 +516,7 @@ public class GenerateGraph {
 		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
 		    					result += cleanedActionId+"_action -> "+cleanedChainId+";\n";
 
-			    				if (chainId.contains(".xhtml")){
-			    					result += cleanedChainId + " [label=\""+chainId+"\",shape=box,fontcolor=white,color=\"Green\",fillcolor=\"Green\",style=\"filled\"];\n";  						
-			    					if(nbXhtmls >0){
-				    					xhtmls += "->";
-				    				}
-			    					xhtmls += cleanedChainId;
-			    					nbXhtmls ++;
-			    				}else if(!automationChainsAndScripting.contains(cleanedChainId)){
+			    				if(!automationChainsAndScripting.contains(cleanedChainId) && !chainId.contains(".xhtml")){
 			    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  									    					
 			    					if(nbAutomationChains >0 || nbAutomationScripting >0){
 			    						automationChainsAndScripting += "->";
@@ -370,7 +638,7 @@ public class GenerateGraph {
 	    					
 	    				}
 	    			}catch(Exception e){
-	    				logger.error("Error when getting Chains", e);
+	    				logger.error("Error when getting Event Handlers", e);
 	    			}
 	    			break;
 	    	}
@@ -379,141 +647,27 @@ public class GenerateGraph {
 		userActions += " [style=invis];\n}";
 		automationChainsAndScripting += " [style=invis];\n}";
 		events += " [style=invis];\n}";
-		xhtmls += " [style=invis];\n}";
 		
-	    result += userActions+"\n"+automationChainsAndScripting+"\n"+events+"\n"+xhtmls+"\n";
+		
+	    result += (nbUserActions>0 ? userActions: "")+"\n"+((nbAutomationChains+ nbAutomationScripting >0)? automationChainsAndScripting:"")+"\n"+(nbEvents>0? events: "")+"\n";
     	result += "}";
 	
-	    writeToFile(graphVizFolderPath+File.separator+File.separator+"input.dot", result);
+	    writeToFile(graphVizFolderPath+File.separator+File.separator+"inputBusinessRules.dot", result);
 		        
 	    CmdParameters parameters = new CmdParameters();
 		    
 	    //Generate png from dot
-	    parameters.addNamedParameter("inputFile", graphVizFolderPath+File.separator+"input.dot");
+	    parameters.addNamedParameter("inputFile", graphVizFolderPath+File.separator+"inputBusinessRules.dot");
 	    parameters.addNamedParameter("format", "png");
-	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"img.png");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"imgBusinessRules.png");
 	    commandLineExecutorComponent.execCommand("dot", parameters);
 		    
 	    //Generate map from dot
 	    parameters.addNamedParameter("format", "cmapx");
-	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"img.cmapx");
+	    parameters.addNamedParameter("outputFile", destinationPath+File.separator+"imgBusinessRules.cmapx");
 	    commandLineExecutorComponent.execCommand("dot", parameters);
-	    map = FileUtils.readFileToString(new File(destinationPath+File.separator+"img.cmapx"));
+	    map = FileUtils.readFileToString(new File(destinationPath+File.separator+"imgBusinessRules.cmapx"));
 	    return map;
 	}
-	
-	public static void main(String[] args){
-		System.out.println("ddd");
-		String graphVizFolderPath = "/Users/mgena/Documents/GraphViz/nuxeo-cap-8.1-tomcat/GraphViz";
-		String studioProjectName = "mgena-SANDBOX";
-		try{
-		JAXBContext jc = JAXBContext.newInstance("org.nuxeo.jaxb");
-		Unmarshaller unmarshaller = jc.createUnmarshaller();
-		String result = "";
-		String map = "";
-		Component component = (Component) unmarshaller.unmarshal(new File("/Users/mgena/Documents/GraphViz/nuxeo-cap-8.1-tomcat/GraphViz/OSGI-INF/extensions.xml"));
-		
-		String rank = "subgraph entryPoint {\n"+
-		    			  "		rank=\"same\";\n";
-		    
-		result = "digraph G {\nrankdir=\"LR\";\n"+
-		    "graph [fontname = \"helvetica\", fontsize=11];\n"+
-		    "node [fontname = \"helvetica\", fontsize=11];\n"+
-		    "edge [fontname = \"helvetica\", fontsize=11];\n";
-		List<Extension> extensions = component.getExtension();
-		String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
-		// Create a Pattern object
-		Pattern r = Pattern.compile(pattern);
-		    
-		for(Extension extension:extensions){
-			String point = extension.getPoint();
-		    switch (point){
-		    	case EXTENSIONPOINT_ACTIONS : 
-		    		try{
-		    			List<Action> actions = extension.getAction();
-		    			for(Action action:actions){
-		    				String chainId = "";
-		    				try{
-		    					chainId = action.getLink();
-		    					if(chainId == null || chainId.startsWith("/")){
-		    						continue;
-		    					}
-		    					// Now create matcher object.		    						
-		    				    Matcher m = r.matcher(chainId);
-		    				    if (m.find( )) {
-		    				    	chainId = m.group(1);
-		    				    }
-		    				}catch(Exception e){
-		    					e.printStackTrace();
-		    				}
-		    				String cleanedActionId = cleanUpForDot(action.getId());
-	    						
-		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
-		    					String cleanedChainId = cleanUpForDot(chainId);
-		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
-		    					result += cleanedActionId+" -> "+cleanedChainId+";\n";
-		    				}
-		    				
-		    				result += cleanedActionId+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
-		    				rank += cleanedActionId+";";	    						    					
-		    			}
-		    		}catch(Exception e){
-		    			e.printStackTrace();
-		    		}
-		    		break;
-		    	case EXTENSIONPOINT_CHAIN :
-		    		try{
-		    			List<Chain> chains = extension.getChain();
-		    			for(Chain chain:chains){
-		    				String chainId = chain.getId();
-		    				String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    				System.out.println("chain description "+chain.getDescription());
-	    					result += cleanUpForDot(chain.getId()) + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\n"+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  						
-	    					
-		    				//handle the link between Automation chains
-	    					if(chain.getOperation() != null){
-	    						for(org.nuxeo.jaxb.Component.Extension.Chain.Operation operation:chain.getOperation()){
-	    							if(("RunOperation").equals(operation.getId())){
-	    								for(org.nuxeo.jaxb.Component.Extension.Chain.Operation.Param param : operation.getParam()){
-	    									if(("id").equals(param.getName()) && !param.getValue().startsWith("expr:")){
-	    										
-	    										result += cleanUpForDot(chain.getId())+" -> "+cleanUpForDot(param.getValue())+";\n";
-	    									}
-	    								}
-	    							}
-	    						}
-	    					}
-	    				
-	    					//result += cleanUpForDot(chain.getId())+ " [label=\""+chain.getDescription()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";	    											    					
-	    				}
-	    			}catch(Exception e){
-	    				e.printStackTrace();
-	    			}
-	    			break;	    		
-	    		case EXTENSIONPOINT_EVENT_HANDLERS : 
-	    			try{
-	    				List<Handler> handlers = extension.getHandler();
-	    				for(Handler handler:handlers){
-	    					handler.getChainId();
-	    					
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+ " [label=\""+handler.getChainId()+"_handler\",shape=box,fontcolor=white,color=\"#FF462A\",fillcolor=\"#FF462A\",style=\"filled\"];\n";
-	    					result += cleanUpForDot(handler.getChainId())+ " [label=\""+handler.getChainId()+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";
-	    					result += cleanUpForDot(handler.getChainId())+"_handler"+" -> "+cleanUpForDot(handler.getChainId())+";\n";
-	    					rank += cleanUpForDot(handler.getChainId())+"_handler;";
-	    				}
-	    			}catch(Exception e){
-	    				e.printStackTrace();
-	    			}
-	    			break;
-	    	}
-	    }
-	    result += rank+"\n}\n";
-    	result += "}";
-    	System.out.println(result);
-		}catch(Exception e){
-			System.out.println(e);
-		}
-	}
-	
+
 }
