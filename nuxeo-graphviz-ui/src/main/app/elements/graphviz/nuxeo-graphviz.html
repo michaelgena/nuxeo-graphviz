@@ -23,7 +23,7 @@
           <td class="center"/>
               <template is="dom-if" if="{{_isDefined(response)}}">
                 <img src="{{imgModelUrl}}" usemap="#M" />
-                <div inner-h-t-m-l="{{decodeURIComponent(response.model)}}"></div>
+                <div inner-h-t-m-l="{{cmapxModel}}"></div>
               </template>
               <template is="dom-if" if="{{!_isDefined(response)}}">
                 <img src="/nuxeo/img/big_loading.gif" >
@@ -44,7 +44,7 @@
           <td class="center"/>
               <template is="dom-if" if="{{_isDefined(response)}}">
                 <img src="{{imgViewUrl}}" usemap="#V" />
-                <div inner-h-t-m-l="{{decodeURIComponent(response.view)}}"></div>
+                <div inner-h-t-m-l="{{cmapxView}}"></div>
               </template>
               <template is="dom-if" if="{{!_isDefined(response)}}">
                 <img src="/nuxeo/img/big_loading.gif" >
@@ -65,7 +65,7 @@
           <td class="center"/>
               <template is="dom-if" if="{{_isDefined(response)}}">
                 <img src="{{imgBusinessRulesUrl}}" usemap="#BL" />
-                <div inner-h-t-m-l="{{decodeURIComponent(response.model)}}"></div>
+                <div inner-h-t-m-l="{{cmapxBusinessRules}}"></div>
               </template>
               <template is="dom-if" if="{{!_isDefined(response)}}">
                 <img src="/nuxeo/img/big_loading.gif" >
@@ -87,6 +87,15 @@
         params: {
           type:Object,
           value: {}
+        },cmapxModel: {
+          type:String,
+          value: ''
+        },cmapxView: {
+          type:String,
+          value: ''
+        },cmapxBusinessRules: {
+          type:String,
+          value: ''
         },
         imgModelUrl: {
           type:String,
@@ -123,7 +132,10 @@
       },
       _isDefined: function(response) {
         if ((typeof response !== 'undefined') && (response !== '') && (response !== null)) {
-          response = JSON.parse(response);
+          json = JSON.parse(response);
+          cmapxView = "";//json.view;
+          cmapxModel = "";//json.model;
+          cmapxBusinessRules = "";//json.businessRules;
           this.imgModelUrl = "/nuxeo/graphviz/imgModel.png?random="+Math.random();
           this.imgViewUrl = "/nuxeo/graphviz/imgView.png?random="+Math.random();
           this.imgBusinessRulesUrl = "/nuxeo/graphviz/imgBusinessRules.png?random="+Math.random();
