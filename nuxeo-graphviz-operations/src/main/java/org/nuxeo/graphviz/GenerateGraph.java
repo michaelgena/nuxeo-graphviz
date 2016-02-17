@@ -300,12 +300,13 @@ public class GenerateGraph {
 	    						docTypes += docTypeName;
 	    						nbDocTypes ++;
 	    						
-	    						/*if(!docTypes.contains(docType.getExtends())){*/
+	    						//TODO Find a reliable way to verify if a given docType is already in the list of docTypes
+	    						if(!docTypes.contains(docType.getExtends())){
 	    							result += docType.getExtends()+ " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+docType.getExtends()+".doc\", label=\""+docType.getExtends()+"\",shape=box,fontcolor=white,color=\"#1CA5FC\",fillcolor=\"#1CA5FC\",style=\"filled\"];\n";		    						
 	    							docTypes += "->";
 	    							docTypes += docType.getExtends();
 	    							nbDocTypes ++;
-	    						/*}*/
+	    						}
 	    					}
 	    				}
 	    			}catch(Exception e){
@@ -350,7 +351,7 @@ public class GenerateGraph {
 		String tabs = "subgraph cluster_0 {\n"+
 		 		 	   "	node [style=filled];\n"+
 		 		 	   " 	label = \"Tabs\";\n"+
-		 		 	   "  	color=\"#E7ECF3\";\n";
+		 		 	   "  	color=\"#2B333E\";\n";
 
 		String docTypes = "subgraph cluster_1 {\n"+
 	 		 	   "	node [style=filled];\n"+
@@ -399,7 +400,9 @@ public class GenerateGraph {
 		    										
 		    					    				if(!docTypes.contains(docTypeName)){
 		    					    					result += docTypeName+ " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+docTypeName+".doc\", label=\""+docTypeName+"\",shape=box,fontcolor=white,color=\"#1CA5FC\",fillcolor=\"#1CA5FC\",style=\"filled\"];\n";		    						
-		    		    								docTypes += "->";
+		    					    					if(nbDocTypes >0){
+		    					    						docTypes += "->";
+		    					    					}
 		    		    								docTypes += docTypeName;
 		    		    								nbDocTypes ++;
 		    					    				}
@@ -413,12 +416,12 @@ public class GenerateGraph {
 		    				
 		    				
 		    				if(!tabs.contains(cleanedActionId)){
-		    					result += cleanedActionId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".tab\" label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#E7ECF3\",fillcolor=\"#E7ECF3\",style=\"filled\"];\n";  						
+		    					result += cleanedActionId + "_tab [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".tab\" label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#2B333E\",fillcolor=\"#2B333E\",style=\"filled\"];\n";  						
 		    					if(nbTabs >0){
 			    					tabs += "->";
-			    			}
-		    				tabs += cleanedActionId;
-		    				nbTabs ++;
+		    					}
+		    					tabs += cleanedActionId+"_tab";
+		    					nbTabs ++;
 		    				}
 		    			}
 		    		}catch(Exception e){
