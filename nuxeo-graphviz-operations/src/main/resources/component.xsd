@@ -45,9 +45,17 @@
                                                                                                   <xs:complexType>
                                                                                                          <xs:sequence>
                                                                                                                 <xs:element name="facet" type="xs:string"></xs:element>
-                                                                                                            </xs:sequence>
+                                                                                                                <xs:element name="type" maxOccurs="unbounded">
+															                                                      <xs:complexType>
+															                                                      		<xs:simpleContent>
+																													      <xs:extension base="xs:string">
+																													      </xs:extension>
+																													    </xs:simpleContent>										                                     		
+															                                                      </xs:complexType>
+															                                                </xs:element>
+                                                                                                         </xs:sequence>                                                                                                         
                                                                                                          <xs:attribute name="grant" type="xs:string"></xs:attribute>
-                                                                                                     </xs:complexType>
+                                                                                                 </xs:complexType>
                                                                                               </xs:element>
                                                                                        </xs:sequence>
                                                                                     <xs:attribute name="id" type="xs:string"></xs:attribute>

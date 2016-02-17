@@ -27,7 +27,6 @@ import org.nuxeo.connect.packages.PackageManager;
 import org.nuxeo.ecm.automation.core.Constants;
 import org.nuxeo.ecm.automation.core.annotations.Operation;
 import org.nuxeo.ecm.automation.core.annotations.OperationMethod;
-import org.nuxeo.ecm.automation.core.annotations.Param;
 import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.impl.blob.StringBlob;
 import org.nuxeo.ecm.platform.commandline.executor.api.CmdParameters;
@@ -36,6 +35,9 @@ import org.nuxeo.ecm.platform.commandline.executor.service.CommandLineExecutorCo
 import org.nuxeo.jaxb.Component;
 import org.nuxeo.jaxb.Component.Extension;
 import org.nuxeo.jaxb.Component.Extension.Action;
+import org.nuxeo.jaxb.Component.Extension.Action.Filter;
+import org.nuxeo.jaxb.Component.Extension.Action.Filter.Rule;
+import org.nuxeo.jaxb.Component.Extension.Action.Filter.Rule.Type;
 import org.nuxeo.jaxb.Component.Extension.Chain;
 import org.nuxeo.jaxb.Component.Extension.Doctype;
 import org.nuxeo.jaxb.Component.Extension.Handler;
@@ -57,7 +59,7 @@ public class GenerateGraph {
     public static final String EXTENSIONPOINT_ACTIONS = "actions";
     public static final String EXTENSIONPOINT_SCHEMAS = "schema";
     public static final String EXTENSIONPOINT_DOCTYPE = "doctype";
-    public static final String COMMON_SCHEMAS = "common,dublincore,uid,task,file,picture,image_metadata,iptc,";
+    public static final String COMMON_SCHEMAS = "common,dublincore,uid,task,file,picture,image_metadata,iptc,publishing,webcontainer,files";
     
    
     
@@ -265,27 +267,29 @@ public class GenerateGraph {
 	    						
 	    						List<Doctype.Schema> extraSchemas = docType.getSchema();
 	    						for(Doctype.Schema extraSchema: extraSchemas){
-	    							if(schemas.contains(extraSchema.getName()) && !("file").equals(schemas)){
-	    								result += docTypeName+"->"+extraSchema.getName()+"[label=\"extends\"];\n";
-	    							}else{	    								
-	    								result += extraSchema.getName()+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+extraSchema.getName()+".ds\", label=\""+extraSchema.getName()+"\",shape=box,fontcolor=white,color=\"#24A4CC\",fillcolor=\"#24A4CC\",style=\"filled\"];\n";
-	    	    						if(nbSchemas > 0){
-	    		    						schemas += "->";
-	    		    					}
-	    	    						schemas += extraSchema.getName();
-	    	    						nbSchemas ++;
+	    							//Don't include common schemas for the sake of visibility
+	    							if(!COMMON_SCHEMAS.contains(extraSchema.getName())){
+	    								result += docTypeName+"->"+extraSchema.getName()+";\n";
+	    								if(schemas.contains(extraSchema.getName())){	    								
+		    								result += extraSchema.getName()+" [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+extraSchema.getName()+".ds\", label=\""+extraSchema.getName()+"\",shape=box,fontcolor=white,color=\"#24A4CC\",fillcolor=\"#24A4CC\",style=\"filled\"];\n";
+		    	    						if(nbSchemas > 0){
+		    		    						schemas += "->";
+		    		    					}
+		    	    						schemas += extraSchema.getName();
+		    	    						nbSchemas ++;
+	    								}
 	    							}
 	    						}
 	    						
 	    						List<Doctype.Facet> extraFacets = docType.getFacet();
 	    						for(Doctype.Facet extraFacet : extraFacets){
-	    							result += docTypeName+"->"+extraFacet.getName()+";\n";
-	    							if(!facets.contains(extraFacet.getName())){
-		    							result += extraFacet.getName()+ " [label=\""+extraFacet.getName()+"\",shape=box,fontcolor=white,color=\"#17384E\",fillcolor=\"#17384E\",style=\"filled\"];\n";		    						
+	    							result += docTypeName+"->"+extraFacet.getName()+"_facet;\n";
+	    							if(!facets.contains(extraFacet.getName()+"_facet")){
+		    							result += extraFacet.getName()+ "_facet [label=\""+extraFacet.getName()+"\",shape=box,fontcolor=white,color=\"#17384E\",fillcolor=\"#17384E\",style=\"filled\"];\n";		    						
 		    							if(nbFacets >0){
 		    								facets += "->";
 		    							}
-		    							facets += extraFacet.getName();
+		    							facets += extraFacet.getName()+"_facet";
 		    							nbFacets ++;
 		    						}
 	    						}
@@ -343,10 +347,10 @@ public class GenerateGraph {
 		String map = "";
 		Component component = (Component) unmarshaller.unmarshal(new File(graphVizFolderPath+File.separator+"OSGI-INF"+File.separator+"extensions.xml"));
 		    
-		String xhtmls = "subgraph cluster_0 {\n"+
+		String tabs = "subgraph cluster_0 {\n"+
 		 		 	   "	node [style=filled];\n"+
-		 		 	   " 	label = \"XHTMLs\";\n"+
-		 		 	   "  	color=Green;\n";
+		 		 	   " 	label = \"Tabs\";\n"+
+		 		 	   "  	color=\"#E7ECF3\";\n";
 
 		String docTypes = "subgraph cluster_1 {\n"+
 	 		 	   "	node [style=filled];\n"+
@@ -358,10 +362,8 @@ public class GenerateGraph {
 		    "node [fontname = \"helvetica\", fontsize=11];\n"+
 		    "edge [fontname = \"helvetica\", fontsize=11];\n";
 		List<Extension> extensions = component.getExtension();
-		String pattern = "\\#\\{operationActionBean.doOperation\\('(.*)'\\)\\}";
-		// Create a Pattern object
-		Pattern r = Pattern.compile(pattern);
-		int nbXhtmls = 0;
+				
+		int nbTabs = 0;
 		int nbDocTypes = 0;
 		for(Extension extension:extensions){
 			String point = extension.getPoint();
@@ -370,36 +372,53 @@ public class GenerateGraph {
 		    		try{
 		    			List<Action> actions = extension.getAction();
 		    			for(Action action:actions){
-		    				String chainId = "";
 		    				String linkType = "";
 		    				try{
-		    					chainId = action.getLink();
 		    					linkType = action.getType();
-		    					//TODO handle the rest_document_link types, Tabs?
-		    					if(chainId == null){
+		    					//handle the rest_document_link types as Tabs
+		    					if(linkType == null || !(linkType).equals("rest_document_link")){
 		    						continue;
 		    					}
-		    					// Now create matcher object.		    						
-		    				    Matcher m = r.matcher(chainId);
-		    				    if (m.find( )) {
-		    				    	chainId = m.group(1);
-		    				    }
+		    					
 		    				}catch(Exception e){
 		    					logger.error("Error when getting chainId", e);
 		    				}
 		    				String cleanedActionId = cleanUpForDot(action.getId());
-	    						
-		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId) && chainId.contains(".xhtml")){
-		    					String cleanedChainId = cleanUpForDot(chainId);
-		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
-		    					result += cleanedActionId+"_action -> "+cleanedChainId+";\n";
-
-		    					result += cleanedChainId + " [label=\""+chainId+"\",shape=box,fontcolor=white,color=\"Green\",fillcolor=\"Green\",style=\"filled\"];\n";  						
-		    					if(nbXhtmls >0){
-			    					xhtmls += "->";
-			    				}
-		    					xhtmls += cleanedChainId;
-		    					nbXhtmls ++;
+	    					
+		    				Filter filter = action.getFilter();
+		    				if(filter != null){
+		    					List<Rule> rules = filter.getRule();
+		    					if(rules != null){
+		    						for(Rule rule: rules){
+		    							if("true".equals(rule.getGrant())){
+		    								List<Type> types = rule.getType();
+		    								if(types !=null){
+		    									for(Type type:types){
+		    										String docTypeName = type.getValue();		    										
+		    					    				result += cleanedActionId+"_tab -> "+docTypeName+";\n";
+		    										
+		    					    				if(!docTypes.contains(docTypeName)){
+		    					    					result += docTypeName+ " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+docTypeName+".doc\", label=\""+docTypeName+"\",shape=box,fontcolor=white,color=\"#1CA5FC\",fillcolor=\"#1CA5FC\",style=\"filled\"];\n";		    						
+		    		    								docTypes += "->";
+		    		    								docTypes += docTypeName;
+		    		    								nbDocTypes ++;
+		    					    				}
+		    										
+		    									}
+		    								}
+		    							}
+		    						}
+		    					}
+		    				}
+		    				
+		    				
+		    				if(!tabs.contains(cleanedActionId)){
+		    					result += cleanedActionId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".tab\" label=\""+action.getId()+"\",shape=box,fontcolor=white,color=\"#E7ECF3\",fillcolor=\"#E7ECF3\",style=\"filled\"];\n";  						
+		    					if(nbTabs >0){
+			    					tabs += "->";
+			    			}
+		    				tabs += cleanedActionId;
+		    				nbTabs ++;
 		    				}
 		    			}
 		    		}catch(Exception e){
@@ -407,29 +426,29 @@ public class GenerateGraph {
 		    		}
 		    		break;
 		    	
-	    		case EXTENSIONPOINT_DOCTYPE : 
+	    		/*case EXTENSIONPOINT_DOCTYPE : 
 	    			try{
 	    				List<Doctype> docTypeList = extension.getDoctype();
 	    				for(Doctype docType : docTypeList){
 	    					String docTypeName = docType.getName();
-	    					//DocType ending with _cv are created for content views
+	    					
 	    					
 	    					
 	    				}
 	    			}catch(Exception e){
 	    				logger.error("Error when getting document type", e);
 	    			}
-	    			break;
+	    			break;*/
 	    	}
 	    }
 		
 		
-		xhtmls += " [style=invis];\n}";
+		tabs += " [style=invis];\n}";
 		
 		docTypes += " [style=invis];\n}";
 	
 		
-	    result += (nbXhtmls>0?xhtmls:"")+"\n"+(nbDocTypes>0?docTypes:"")+"\n";
+	    result += (nbTabs>0?tabs:"")+"\n"+(nbDocTypes>0?docTypes:"")+"\n";
     	result += "}";
 	
 	    writeToFile(graphVizFolderPath+File.separator+File.separator+"inputView.dot", result);
@@ -511,12 +530,12 @@ public class GenerateGraph {
 		    				}
 		    				String cleanedActionId = cleanUpForDot(action.getId());
 	    						
-		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)){
+		    				if(chainId != null && !("").equals(chainId) && !(".").equals(chainId)  && !chainId.endsWith("xhtml")){
 		    					String cleanedChainId = cleanUpForDot(chainId);
 		    					String refChainId = chainId.startsWith("javascript.")? chainId.replace("javascript.", "")+".scriptedOperation" : chainId+".ops";
 		    					result += cleanedActionId+"_action -> "+cleanedChainId+";\n";
 
-			    				if(!automationChainsAndScripting.contains(cleanedChainId) && !chainId.contains(".xhtml")){
+			    				if(!automationChainsAndScripting.contains(cleanedChainId)){
 			    					result += cleanedChainId + " [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+refChainId+"\", label=\""+chainId+"\",shape=box,fontcolor=white,color=\"#28A3C7\",fillcolor=\"#28A3C7\",style=\"filled\"];\n";  									    					
 			    					if(nbAutomationChains >0 || nbAutomationScripting >0){
 			    						automationChainsAndScripting += "->";
@@ -529,13 +548,14 @@ public class GenerateGraph {
 				    					nbAutomationChains ++;
 				    				}
 			    				}
+			    				result += cleanedActionId+"_action [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
+				    			if(nbUserActions >0){
+				    				userActions += "->";
+				    			}   			
+				    			userActions += cleanedActionId+"_action";		
+				    			nbUserActions ++;
 		    				}
-		    				result += cleanedActionId+"_action [URL=\"https://connect.nuxeo.com/nuxeo/site/studio/ide?project="+studioProjectName+"#@feature:"+action.getId()+".action\", label=\""+action.getId()+"\n"+(action.getLabel()!= null ? action.getLabel():"")+"\",shape=box,fontcolor=white,color=\"#00ADFF\",fillcolor=\"#00ADFF\",style=\"filled\"];\n";
-			    			if(nbUserActions >0){
-			    				userActions += "->";
-			    			}   			
-			    			userActions += cleanedActionId+"_action";		
-			    			nbUserActions ++;
+		    				
 		    			}
 		    		}catch(Exception e){
 		    			logger.error("Error when getting Actions", e);
